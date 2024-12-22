@@ -1,0 +1,18 @@
+[package]
+name = "dystellar-backend-rs"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+dotenv = "0.15.0"
+
+[dependencies]
+http-body-util = "0.1.2"
+hyper = "1.5.2"
+hyper-util = "0.1.10"
+mysql = "25.0.1"
+rustls = "0.23.20"
+rustls-pemfile = "2.2.0"
+tokio = "1.42.0"
+tokio-rustls = "0.26.1"
+
