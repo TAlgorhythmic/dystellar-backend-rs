@@ -4,24 +4,55 @@ CREATE TABLE IF NOT EXISTS players
     chat BOOLEAN NOT NULL,
     messages INTEGER NOT NULL DEFAULT 1,
     suffix VARCHAR(15) NOT NULL,
-    punishments VARCHAR(1000),
-    notes VARCHAR(1000),
-    lang VARCHAR(4) NOT NULL,
-    inbox VARCHAR(3000),
+    lang CHAR(2) NOT NULL,
     tabcompletion BOOLEAN NOT NULL DEFAULT FALSE,
     scoreboard BOOLEAN NOT NULL DEFAULT TRUE,
-    ignoreList VARCHAR(4000) NOT NULL,
-    friends VARCHAR(2000),
     otherConfigs VARCHAR(4000),
     tips VARCHAR(50) NOT NULL,
     PRIMARY KEY (uuid)
 );
+·
+CREATE TABLE IF NOT EXISTS friends
+(
+	player1 CHAR(36) NOT NULL,
+	player2 CHAR(36) NOT NULL,
+	PRIMARY KEY (player1, player2),
+	FOREIGN KEY (player1) REFERENCES players(uuid) ON DELETE CASCADE,
+	FOREIGN KEY (player2) REFERENCES players(uuid) ON DELETE CASCADE
+);
+·
+CREATE INDEX IF NOT EXISTS idx_player1 ON friends (player1);
+CREATE INDEX IF NOT EXISTS idx_player2 ON friends (player2);
+·
+DELIMITER $$
+
+CREATE TRIGGER IF NOT EXISTS before_insert_friends
+BEFORE INSERT ON friends
+FOR EACH ROW
+BEGIN
+	IF NEW.player1 > NEW.player2 THEN
+		SET NEW.player1 = NEW.player2, NEW.player2 = NEW.player1;
+	END IF;
+END $$
+
+DELIMITER ;
+·
+CREATE TABLE IF NOT EXISTS ignores
+(
+	ignored CHAR(36) NOT NULL,
+	issuer CHAR(36) NOT NULL,
+	PRIMARY KEY (issuer, ignored),
+	FOREIGN KEY (issuer) REFERENCES players(uuid) ON DELETE CASCADE,
+	FOREIGN KEY (ignored) REFERENCES players(uuid) ON DELETE CASCADE
+);
+·
 CREATE TABLE IF NOT EXISTS senders
 (
     id INTEGER NOT NULL,
     serialized VARCHAR(4000) NOT NULL,
 	PRIMARY KEY (id)
 );
+·
 CREATE TABLE IF NOT EXISTS punishments
 (
 	id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -30,5 +61,46 @@ CREATE TABLE IF NOT EXISTS punishments
 	expirationDate DATETIME,
 	type INTEGER NOT NULL,
 	player CHAR(36) NOT NULL,
-	FOREIGN KEY (player) REFERENCES players(uuid)
+	FOREIGN KEY (player) REFERENCES players(uuid) ON DELETE CASCADE
+);
+·
+CREATE TABLE IF NOT EXISTS notes
+(
+	id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	note VARCHAR(255) NOT NULL,
+	player CHAR(36) NOT NULL,
+	FOREIGN KEY (player) REFERENCES players(uuid) ON DELETE CASCADE
+);
+·
+CREATE TABLE IF NOT EXISTS inboxes
+(
+	id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	submissionDate DATETIME NOT NULL,
+	from VARCHAR(65) NOT NULL,
+	title VARCHAR(70) NOT NULL DEFAULT "Title no specified.",
+	message VARCHAR(355) NOT NULL DEFAULT "Message not specified.",
+	type INTEGER NOT NULL,
+	player CHAR(36) NOT NULL,
+	FOREIGN KEY (player) REFERENCES players(uuid) ON DELETE CASCADE
+);
+·
+CREATE TABLE IF NOT EXISTS in_data_reward_coins
+(
+	id INTEGER NOT NULL PRIMARY KEY,
+	coins INTEGER NOT NULL,
+	FOREIGN KEY (id) REFERENCES inboxes(id) ON DELETE CASCADE
+);
+·
+CREATE TABLE IF NOT EXISTS in_data_prac_keffect
+(
+	id INTEGER NOT NULL PRIMARY KEY,
+	ordinal INTEGER NOT NULL,
+	FOREIGN KEY (id) REFERENCES inboxes(id) ON DELETE CASCADE
+);
+·
+CREATE TABLE IF NOT EXISTS in_data_compensate_elo
+(
+	id INTEGER NOT NULL PRIMARY KEY,
+	elo INTEGER NOT NULL,
+	FOREIGN KEY (id) REFERENCES inboxes(id) ON DELETE CASCADE
 );

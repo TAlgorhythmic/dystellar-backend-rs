@@ -25,7 +25,7 @@ pub fn init_db() -> Result<(), Box<dyn std::error::Error>> {
     let schema = include_bytes!("../../../schema.sql");
     let queries: std::borrow::Cow<'_, str> = String::from_utf8_lossy(schema);
     
-    for query in queries.split(';').into_iter() {
+    for query in queries.split('·').into_iter() {
         query_unsafe(query)?;
     }
 
