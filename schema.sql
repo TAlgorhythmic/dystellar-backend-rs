@@ -1,16 +1,25 @@
 CREATE TABLE IF NOT EXISTS players
 (
     uuid CHAR(36) NOT NULL,
+	name VARCHAR(16) NOT NULL,
+	email VARCHAR(80),
+	pwhash CHAR(128),
+	salt CHAR(64),
     chat BOOLEAN NOT NULL,
     messages INTEGER NOT NULL DEFAULT 1,
-    suffix VARCHAR(15) NOT NULL,
+    suffix VARCHAR(15) NOT NULL DEFAULT "",
     lang CHAR(2) NOT NULL,
     tabcompletion BOOLEAN NOT NULL DEFAULT FALSE,
     scoreboard BOOLEAN NOT NULL DEFAULT TRUE,
-    otherConfigs VARCHAR(4000),
-    tips VARCHAR(50) NOT NULL,
+	friendReqEnabled BOOLEAN NOT NULL DEFAULT TRUE,
+	sendPackPrompt BOOLEAN NOT NULL DEFAULT TRUE,
+	tipFirstFriend BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (uuid)
 );
+·
+CHECK (name REGEXP '^[a-zA-Z0-9_]{2,16}$');
+·
+CREATE INDEX idx_name ON players(name);
 ·
 CREATE TABLE IF NOT EXISTS friends
 (
