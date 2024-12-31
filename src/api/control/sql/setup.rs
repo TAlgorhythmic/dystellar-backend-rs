@@ -1,15 +1,14 @@
 use std::sync::{LazyLock, Mutex};
 
-use crate::api::typedef::User;
-use mysql::{Opts, Pool};
-use mysql::prelude::*;
+use mysql_async::{Opts, Pool};
+use mysql_async::prelude::*;
 
 const DB_VERSION: i16 = 0;
 const DB_URL: &str = env!("DB_URL");
 
 const POOL: LazyLock<Mutex<Option<Pool>>> = LazyLock::new(|| Mutex::new(None));
 
-fn get_pool() -> Pool {
+pub fn get_pool() -> Pool {
     let binding = POOL;
     let mut pool = binding.lock().unwrap();
 
@@ -22,7 +21,7 @@ fn get_pool() -> Pool {
 }
 
 pub fn init_db() -> Result<(), Box<dyn std::error::Error>> {
-    let schema = include_bytes!("../../../schema.sql");
+    let schema = include_bytes!("../../../../schema.sql");
     let queries: std::borrow::Cow<'_, str> = String::from_utf8_lossy(schema);
     
     for query in queries.split('·').into_iter() {
@@ -41,8 +40,4 @@ fn query_unsafe(str: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     conn.query_drop(str)?;
     Ok(())
-}
-
-pub async fn get_player(uuid: String) -> User {
-
 }

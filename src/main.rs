@@ -1,5 +1,5 @@
 mod api;
-use api::control::sql::init_db;
+use api::control::sql::setup::init_db;
 
 fn main() {
     // Init Database
