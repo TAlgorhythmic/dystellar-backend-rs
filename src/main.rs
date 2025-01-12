@@ -1,7 +1,10 @@
 mod api;
 use api::control::sql::setup::init_db;
 
-fn main() {
+
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
-    init_db().expect("Failed to initialize database");
+    init_db().await.expect("Failed to initialize database");
+
 }

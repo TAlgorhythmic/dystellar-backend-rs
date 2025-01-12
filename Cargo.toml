@@ -7,9 +7,7 @@ edition = "2021"
 dotenv = "0.15.0"
 
 [dependencies]
-http-body-util = "0.1.2"
-hyper = "1.5.2"
-hyper-util = "0.1.10"
 mysql_async = "0.34.2"
-tokio = "1.43.0"
+tokio = { version = "1.43.0", features = ["full"]}
 argon2 = "0.5.3"
+hyper = { version = "1.5.2", features = ["http2", "client", "server"] }
