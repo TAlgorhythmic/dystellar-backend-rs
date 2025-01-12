@@ -13,31 +13,31 @@ pub fn get_pool() -> Pool {
     let mut pool = binding.lock().unwrap();
 
     if pool.is_none() {
-        let new_pool = Pool::new(Opts::from_url(DB_URL).expect("Error creating opts.")).expect("Error initializing database pool.");
+        let new_pool = Pool::new(Opts::from_url(DB_URL).expect("Error creating opts."));
 
         *pool = Some(new_pool);
     };
     pool.clone().unwrap()
 }
 
-pub fn init_db() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn init_db() -> Result<(), Box<dyn std::error::Error>> {
     let schema = include_bytes!("../../../../schema.sql");
     let queries: std::borrow::Cow<'_, str> = String::from_utf8_lossy(schema);
     
     for query in queries.split('·').into_iter() {
-        query_unsafe(query)?;
+        query_unsafe(query).await?;
     }
 
     // Init metadata if not exists, this is to keep track of changes into the database.
-    query_unsafe("CREATE TABLE IF NOT EXISTS metadata(id INT PRIMARY KEY, version INT);")?;
-    query_unsafe(format!("INSERT INTO metadata(id, version) VALUES(0, {DB_VERSION}) WHERE NOT EXISTS (SELECT * FROM metadata WHERE id = 0);").as_str());
+    query_unsafe("CREATE TABLE IF NOT EXISTS metadata(id INT PRIMARY KEY, version INT);").await?;
+    query_unsafe(format!("INSERT INTO metadata(id, version) VALUES(0, {DB_VERSION}) WHERE NOT EXISTS (SELECT * FROM metadata WHERE id = 0);").as_str()).await?;
     Ok(())
 }
 
-fn query_unsafe(str: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn query_unsafe(str: &str) -> Result<(), Box<dyn std::error::Error>> {
     let pool = get_pool();
-    let mut conn = pool.get_conn()?;
+    let mut conn = pool.get_conn().await?;
 
-    conn.query_drop(str)?;
+    conn.query_drop(str).await?;
     Ok(())
 }
