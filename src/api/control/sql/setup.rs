@@ -13,7 +13,7 @@ pub fn get_pool() -> Pool {
     let mut pool = binding.lock().unwrap();
 
     if pool.is_none() {
-        let new_pool = Pool::new(Opts::from_url(DB_URL).expect("Error creating opts."));
+        let new_pool = Pool::new(DB_URL);
 
         *pool = Some(new_pool);
     };
@@ -30,7 +30,7 @@ pub async fn init_db() -> Result<(), Box<dyn std::error::Error>> {
 
     // Init metadata if not exists, this is to keep track of changes into the database.
     query_unsafe("CREATE TABLE IF NOT EXISTS metadata(id INT PRIMARY KEY, version INT);").await?;
-    query_unsafe(format!("INSERT INTO metadata(id, version) VALUES(0, {DB_VERSION}) WHERE NOT EXISTS (SELECT * FROM metadata WHERE id = 0);").as_str()).await?;
+    query_unsafe(format!("INSERT IGNORE INTO metadata(id, version) VALUES(0, {DB_VERSION});").as_str()).await?;
     Ok(())
 }
 

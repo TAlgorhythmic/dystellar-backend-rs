@@ -39,6 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
         let (stream, addr) = binding.accept().await?;
 
+        println!("Incoming connection from {addr}.");
+
         let io = TokioIo::new(stream);
 
         tokio::task::spawn(async move {

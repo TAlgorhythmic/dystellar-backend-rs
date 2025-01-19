@@ -14,12 +14,11 @@ CREATE TABLE IF NOT EXISTS players
 	friendReqs BOOLEAN NOT NULL DEFAULT TRUE,
 	sendPackPrompt BOOLEAN NOT NULL DEFAULT TRUE,
 	tipFirstFriend BOOLEAN NOT NULL DEFAULT FALSE,
+	CHECK (name REGEXP '^[a-zA-Z0-9_]{2,16}$'),
     PRIMARY KEY (uuid)
 );
 ·
-CHECK (name REGEXP '^[a-zA-Z0-9_]{2,16}$');
-·
-CREATE INDEX idx_name ON players(name);
+CREATE INDEX IF NOT EXISTS idx_name ON players(name);
 ·
 CREATE TABLE IF NOT EXISTS friends
 (
@@ -32,19 +31,6 @@ CREATE TABLE IF NOT EXISTS friends
 ·
 CREATE INDEX IF NOT EXISTS idx_player1 ON friends (player1);
 CREATE INDEX IF NOT EXISTS idx_player2 ON friends (player2);
-·
-DELIMITER $$
-
-CREATE TRIGGER IF NOT EXISTS before_insert_friends
-BEFORE INSERT ON friends
-FOR EACH ROW
-BEGIN
-	IF NEW.player1 > NEW.player2 THEN
-		SET NEW.player1 = NEW.player2, NEW.player2 = NEW.player1;
-	END IF;
-END $$
-
-DELIMITER ;
 ·
 CREATE TABLE IF NOT EXISTS ignores
 (
@@ -85,7 +71,7 @@ CREATE TABLE IF NOT EXISTS inboxes
 (
 	id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
 	submissionDate DATETIME NOT NULL,
-	from VARCHAR(65) NOT NULL,
+	issuer VARCHAR(65) NOT NULL,
 	title VARCHAR(70) NOT NULL DEFAULT "Title no specified.",
 	message VARCHAR(355) NOT NULL DEFAULT "Message not specified.",
 	type INTEGER NOT NULL,
