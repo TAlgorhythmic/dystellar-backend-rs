@@ -12,3 +12,4 @@ tokio = { version = "1.43.0", features = ["full"]}
 argon2 = "0.5.3"
 hyper = { version = "1.5.2", features = ["http2", "client", "server"] }
 hyper-util = { version = "0.1.10", features = ["full"] }
+http-body-util = "0.1.2"
