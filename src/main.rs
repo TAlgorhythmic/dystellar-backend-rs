@@ -3,6 +3,7 @@ use api::control::sql::setup::init_db;
 use std::net::{SocketAddr, IpAddr};
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
+use api::service::srv;
 
 const HOST: &str = env!("HOST");
 const PORT: &str = env!("PORT");
@@ -17,11 +18,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     loop {
         let (stream, addr) = binding.accept().await?;
-
+        
         let io = TokioIo::new(stream);
 
         tokio::task::spawn(async move {
-
-        })
+            
+        });
     }
 }
