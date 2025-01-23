@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
     init_db().await.expect("Failed to initialize database");
 
-    let address = SocketAddr::new(HOST.parse::<IpAddr>().expect("Failed to parse host."), u16::from_str_radix(PORT, 10).expect("Failed to parse port."));
+    let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;
 
     println!("Listening to {HOST}:{PORT}");
