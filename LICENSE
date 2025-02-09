@@ -1,26 +1,35 @@
-PROPRIETARY LICENSE
+CUSTOM ORGANIZATION-EXCLUSIVE LICENSE
 
-Copyright (c) [year] [Your Name/Company Name]. All rights reserved.
+Copyright (c) [2025] [Dystellar Network]. All rights reserved.
 
-1. **No Access to Source Code**:
-   The source code for this software is **not available** for public distribution or modification. You may not access, view, or use the source code under any circumstances unless you have explicit permission from the copyright holder.
+1. **Limited License Grant**:
+   The source code, compiled builds, executables, and any other form of the software (hereafter referred to as "the Software") are provided under this exclusive license. You, as a member of the designated organization, are granted permission to use, modify, and distribute the Software **only within your organization**. Usage outside of the organization is strictly prohibited.
 
-2. **No Redistribution or Sharing of Builds**:
-   You may not distribute, share, sell, or otherwise make available any compiled or built version of this software (including executables, binaries, or packaged builds) without express written permission from the copyright holder.
+2. **No Access for External Parties**:
+   The source code, builds, or any derivative works **may not** be accessed, distributed, or shared with any entity, individual, or organization outside of your own organization without explicit written consent from the copyright holder.
 
-3. **No Modification or Derivative Works**:
-   You may not modify, reverse-engineer, disassemble, decompile, or create derivative works based on this software or its built versions unless you have explicit written permission from the copyright holder.
+3. **No Redistribution**:
+   You may not redistribute, sell, or sublicense the Software, or any part thereof, to any third party. The Software is for internal use by the organization only.
 
-4. **License Grant**:
-   The software may only be used under a license granted by the copyright holder. A separate license may be provided for specific use cases and distributions, subject to approval.
+4. **Modification Rights**:
+   The organization is granted the right to modify the Software. However, such modifications and derivative works **must not be distributed** outside of the organization and **cannot** be shared with external parties without written permission from the copyright holder.
 
-5. **Usage Limitations**:
-   Any use of the software, including the compiled version, is **strictly limited** to the terms of the license agreement. Unauthorized use, copying, distribution, or modification will result in immediate revocation of the license and may result in legal action.
+5. **No Reverse Engineering**:
+   You may not reverse-engineer, decompile, or disassemble the Software, except to the extent that such activity is expressly permitted by applicable law.
 
-6. **No Warranty**:
-   The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, or non-infringement.
+6. **Confidentiality**:
+   The Software and its source code are considered confidential and proprietary. You, as a member of the organization, agree to maintain the confidentiality of the Software and not to disclose it to any unauthorized third parties.
 
-7. **Permission to Contact**:
-   By using or interacting with the software, you consent to being contacted by the copyright holder for licensing inquiries, permissions, and other related purposes.
+7. **No Commercial Use Outside Organization**:
+   The Software is not licensed for **commercial** use outside of the designated organization. Any attempt to use, distribute, or sublicense the Software for commercial purposes, including but not limited to reselling or distributing for a fee, is strictly prohibited unless written permission is granted by the copyright holder.
 
-For inquiries regarding obtaining a license, redistribution, or other permissions, please contact [Your Contact Info].
+8. **License Termination**:
+   This license will be terminated automatically if the Software is used in any manner that violates the terms of this agreement. Upon termination, all copies of the Software must be immediately destroyed or returned to the copyright holder.
+
+9. **Warranty Disclaimer**:
+   The Software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, or non-infringement.
+
+10. **Permission for Auditing**:
+    The copyright holder reserves the right to audit the usage of the Software by your organization to ensure compliance with the terms of this license.
+
+For any inquiries regarding further permissions, licensing, or redistribution, please contact [support@dystellar.gg].
