@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use hyper::body::Bytes;
 use hyper::Response;
 use http_body_util::Full;
@@ -50,22 +48,34 @@ impl Node {
         Self { name: val.into(), subnodes: vec![], endpoints: vec![] }
     }
 
-    pub fn subnodes_search(&self, val: &str) -> Option<&Node> {
-        for subnode in &self.subnodes {
-            if *subnode.name == *val {
-                return Some(subnode);
-            }
-        }
-        None
+    pub fn subnodes_search(&mut self, val: &str) -> Option<&mut Node> {
+        self.subnodes.iter_mut().find(|n| *n.name == *val)
     }
 
-    pub fn endpoints_search(&self, val: &str, method: &Method) -> Option<&Endpoint> {
-        for endpoint in &self.endpoints {
-            if *endpoint.name == *val && endpoint.method == *method {
-                return Some(endpoint);
-            }
+    pub fn endpoints_search(&mut self, val: &str, method: &Method) -> Option<&Endpoint> {
+        self.endpoints.iter().find(|n| *n.name == *val && n.method == *method)
+    }
+}
+
+fn register_endpoint(i: usize, node: &mut Node, split: Vec<&str>, method: Method, func: EndpointHandler)
+    -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
+    if i == split.len() - 1 {
+        node.endpoints.push(Endpoint::new(method, split[i], func));
+        return Ok(());
+    } else {
+        let next;
+
+        if let Some(child) = node.subnodes_search(split[i]) {
+            next = child;
+        } else {
+            let new = Node::new(split[i]);
+            node.subnodes.push(new);
+            next = node.subnodes.last_mut().unwrap();
         }
-        None
+
+
+        register_endpoint(i + 1, next, split, method, func)
     }
 }
 
@@ -76,9 +86,8 @@ impl Router {
 
     pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let split = path.split('/').collect::<Vec<&str>>();
-        let len = split.len();
 
-        if len < 2 {
+        if split.len() < 2 {
             return Err("An endpoint must contain at least the basename.".into());
         }
 
@@ -86,24 +95,6 @@ impl Router {
             return Err("Invalid base name in url.".into());
         }
 
-        let mut act = &mut self.base;
-
-        for i in 2..len {
-            let nd_found = act.subnodes_search(split[i]);
-
-            if nd_found.is_some() {
-                act = nd_found.unwrap();
-                continue;
-            }
-            let ed_found = act.endpoints_search(split[i], &method);
-            if ed_found.is_some() {
-                eprintln!("Warning! Endpoint {path} is duplicated in some way, this endpoint won't be registered.");
-                break;
-            }
-            if i == (len - 1) {
-                act.endpoints.push(Endpoint::new(method, split[i], func));
-            }
-        }
-        Ok(())
+        register_endpoint(1, &mut self.base, split, method, func)
     }
 }

@@ -1,7 +1,7 @@
 mod api;
 
 use api::control::sql::setup::init_db;
-use std::net::{SocketAddr, IpAddr};
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
 use api::service::srv;
