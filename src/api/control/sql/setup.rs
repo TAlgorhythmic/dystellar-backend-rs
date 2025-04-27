@@ -1,23 +1,14 @@
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock};
 
-use mysql_async::{Opts, Pool};
-use mysql_async::prelude::*;
+use libsql::Database;
 
-const DB_VERSION: i16 = 0;
+const DB_VERSION: u16 = 0;
 const DB_URL: &str = env!("DB_URL");
 
-const POOL: LazyLock<Mutex<Option<Pool>>> = LazyLock::new(|| Mutex::new(None));
+const CLIENT: LazyLock<Arc<Database>> = LazyLock::new(|| Arc::new(Database::open(DB_URL).expect("Failed to open database.")));
 
-pub fn get_pool() -> Pool {
-    let binding = POOL;
-    let mut pool = binding.lock().unwrap();
-
-    if pool.is_none() {
-        let new_pool = Pool::new(DB_URL);
-
-        *pool = Some(new_pool);
-    };
-    pool.clone().unwrap()
+pub fn get_client() -> Arc<Database> {
+    CLIENT.clone()
 }
 
 pub async fn init_db() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,14 +21,15 @@ pub async fn init_db() -> Result<(), Box<dyn std::error::Error>> {
 
     // Init metadata if not exists, this is to keep track of changes into the database.
     query_unsafe("CREATE TABLE IF NOT EXISTS metadata(id INT PRIMARY KEY, version INT);").await?;
-    query_unsafe(format!("INSERT IGNORE INTO metadata(id, version) VALUES(0, {DB_VERSION});").as_str()).await?;
+    query_unsafe(format!("INSERT OR IGNORE INTO metadata(id, version) VALUES(0, {DB_VERSION});").as_str()).await?;
+
+    println!("libsql initialized correctly!");
     Ok(())
 }
 
 async fn query_unsafe(str: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let pool = get_pool();
-    let mut conn = pool.get_conn().await?;
+    let conn = CLIENT.connect()?;
 
-    conn.query_drop(str).await?;
+    conn.execute(str, ()).await?;
     Ok(())
 }

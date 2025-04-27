@@ -1,8 +1,8 @@
-use hyper::body::Bytes;
-use hyper::Response;
+use hyper::body::{Bytes, Incoming};
+use hyper::{Request, Response};
 use http_body_util::Full;
 
-type EndpointHandler = fn(Option<Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>>;
+type EndpointHandler = fn(Request<Incoming>, Option<&str>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(PartialEq)]
 pub enum Method {
@@ -52,8 +52,8 @@ impl Node {
         self.subnodes.iter_mut().find(|n| *n.name == *val)
     }
 
-    pub fn endpoints_search(&mut self, val: &str, method: &Method) -> Option<&Endpoint> {
-        self.endpoints.iter().find(|n| *n.name == *val && n.method == *method)
+    pub fn endpoints_search(&mut self, val: &str, method: &Method) -> Option<&mut Endpoint> {
+        self.endpoints.iter_mut().find(|n| *n.name == *val && n.method == *method)
     }
 }
 
