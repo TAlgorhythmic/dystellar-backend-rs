@@ -14,7 +14,7 @@ pub fn router() -> Arc<Router> {
     ROUTER.clone()
 }
 
-pub fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>> {
     match req.uri().path() {
         _ => Err("Endpoint not valid.".into())
     }

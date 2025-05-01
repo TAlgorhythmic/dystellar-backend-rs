@@ -5,7 +5,7 @@ use json::object;
 use super::routers::handle;
 
 pub async fn srv(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>> {
-    let res = handle(req);
+    let res = handle(req).await;
     if res.is_err() {
         let value = object! {
             ok: false,

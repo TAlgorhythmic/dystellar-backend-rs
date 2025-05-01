@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+use std::error::Error;
+use std::future::Future;
+
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 use http_body_util::Full;
 
-type EndpointHandler = fn(Request<Incoming>, Option<&str>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>>;
+type EndpointHandler = Box<dyn Fn(Request<Incoming>, HashMap<&str, &str>) -> Box<dyn Future<Output = Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>>> + Send + 'static>>;
 
 #[derive(PartialEq)]
 pub enum Method {
