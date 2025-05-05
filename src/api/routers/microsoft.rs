@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock, RwLock}};
+use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock, RwLock}, thread::sleep, time::Duration};
 
 use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
@@ -9,6 +9,31 @@ use crate::api::{typedef::{Method, SigninState}, utils::response};
 use super::router;
 
 const PENDING: LazyLock<Arc<RwLock<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(RwLock::new(HashMap::new()))});
+
+async fn loginsession(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
+    let pend = PENDING;
+    let arg = args.get("uuid");
+    if arg.is_none() {
+        return Err("Invalid params".into());
+    }
+
+    let mut guard = pend.write().unwrap();
+
+    let uuid = arg.unwrap();
+
+    guard.insert(uuid.clone(), SigninState::new());
+
+    let cl = uuid.clone();
+
+    tokio::spawn(async move {
+        sleep(Duration::from_secs(120));
+        let pending = PENDING;
+        let mut safe = pending.write().unwrap();
+        
+        safe.remove(&cl);
+    });
+    Ok(response(object! { ok: true }))
+}
 
 async fn login(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
     let pend = PENDING;
@@ -21,7 +46,12 @@ async fn login(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Resul
 
     let uuid = arg.unwrap();
     let state = guard.get(uuid);
-    if state.is_none() || !state.unwrap().is_authenticated() {
+
+    if state.is_none() {
+        return Err("Login session expired.".into());
+    }
+
+    if !state.unwrap().is_authenticated() {
         return Ok(response(object! { ok: true, authenticated: false }));
     }
 
@@ -59,6 +89,21 @@ pub async fn register() {
     let mut access = tmp.lock();
     let router = access.as_mut().unwrap();
 
-    router.endpoint(Method::Get, "/api/microsoft/callback", Box::new(|req, args| {Box::new(callback(req, args))})).expect("Failed to register microsoft callback endpoint");
-    router.endpoint(Method::Get, "/api/microsoft/login", Box::new(|req, args| {Box::new(login(req, args))})).expect("Failed to register microsoft login endpoint");
+    router.endpoint(
+        Method::Get, 
+        "/api/microsoft/callback",
+        Box::new(|req, args| {Box::new(callback(req, args))})
+    ).expect("Failed to register microsoft callback endpoint");
+
+    router.endpoint(
+        Method::Get,
+        "/api/microsoft/login",
+        Box::new(|req, args| {Box::new(login(req, args))})
+    ).expect("Failed to register microsoft login endpoint");
+
+    router.endpoint(
+        Method::Post,
+        "/api/microsoft/loginsession",
+        Box::new(|req, args| {Box::new(loginsession(req, args))})
+    ).expect("Failed to register microsoft login session endpoint");
 }

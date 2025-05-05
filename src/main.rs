@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     init_db().await.expect("Failed to initialize database");
 
     // Register endpoints
-    microsoft::register();
+    microsoft::register().await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
 
