@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, sync::{Arc, LazyLock, RwLock}};
+use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock, RwLock}};
 
 use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
@@ -8,9 +8,9 @@ use crate::api::{typedef::{Method, SigninState}, utils::response};
 
 use super::router;
 
-const PENDING: LazyLock<Arc<RwLock<HashMap<String, SigninState>>>> = LazyLock::new(|| {Arc::new(RwLock::new(HashMap::new()))});
+const PENDING: LazyLock<Arc<RwLock<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(RwLock::new(HashMap::new()))});
 
-async fn login(_: Request<Incoming>, args: HashMap<String, String>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
+async fn login(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
     let pend = PENDING;
     let arg = args.get("uuid");
     if arg.is_none() {
@@ -25,7 +25,9 @@ async fn login(_: Request<Incoming>, args: HashMap<String, String>) -> Result<Re
         return Ok(response(object! { ok: true, authenticated: false }));
     }
 
-    Ok(response(object! { ok: true, authenticated: true }))
+    let res = state.unwrap();
+
+    Ok(response(object! { ok: true, authenticated: true, code: res.get_code().as_ref().unwrap().deref() }))
 }
 
 async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
@@ -48,7 +50,7 @@ async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Re
 
     let signin_state: &mut SigninState = opt.unwrap();
     signin_state.set_authenticated(true);
-    signin_state.set_code(String::from(*code).as_str());
+    signin_state.set_code(code);
     Ok(response(object! { ok: true, msg: "Login successful! You can now close this tab." }))
 }
 

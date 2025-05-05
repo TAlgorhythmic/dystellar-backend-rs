@@ -1,7 +1,6 @@
-pub mod auth;
 pub mod microsoft;
 
-use std::sync::{Arc, LazyLock};
+use std::{error::Error, sync::{Arc, LazyLock}};
 
 use hyper::{Response, Request, body::{Bytes, Incoming}};
 use http_body_util::Full;
@@ -14,7 +13,7 @@ pub fn router() -> Arc<Router> {
     ROUTER.clone()
 }
 
-pub async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
     match req.uri().path() {
         _ => Err("Endpoint not valid.".into())
     }

@@ -6,7 +6,7 @@ use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 use http_body_util::Full;
 
-type EndpointHandler = Box<dyn Fn(Request<Incoming>, HashMap<&str, &str>) -> Box<dyn Future<Output = Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>>> + Send + 'static>>;
+type EndpointHandler = Box<dyn Fn(Request<Incoming>, HashMap<Box<str>, Box<str>>) -> Box<dyn Future<Output = Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>>> + Send + 'static>>;
 
 #[derive(PartialEq)]
 pub enum Method {
@@ -88,7 +88,7 @@ impl Router {
         Self { base: Node::new(base) }
     }
 
-    pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
         let split = path.split('/').collect::<Vec<&str>>();
 
         if split.len() < 2 {

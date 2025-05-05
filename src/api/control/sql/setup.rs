@@ -5,6 +5,7 @@ use libsql::Database;
 const DB_VERSION: u16 = 0;
 const DB_URL: &str = env!("DB_URL");
 
+#[allow(deprecated)]
 const CLIENT: LazyLock<Arc<Database>> = LazyLock::new(|| Arc::new(Database::open(DB_URL).expect("Failed to open database.")));
 
 pub fn get_client() -> Arc<Database> {
