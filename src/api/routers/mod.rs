@@ -1,15 +1,15 @@
 pub mod microsoft;
 
-use std::{error::Error, sync::{Arc, LazyLock}};
+use std::{error::Error, sync::{Arc, LazyLock, Mutex}};
 
 use hyper::{Response, Request, body::{Bytes, Incoming}};
 use http_body_util::Full;
 
 use super::typedef::Router;
 
-const ROUTER: LazyLock<Arc<Router>> = LazyLock::new(|| Arc::new(Router::new("/api")));
+const ROUTER: LazyLock<Arc<Mutex<Router>>> = LazyLock::new(|| Arc::new(Mutex::new(Router::new("/api"))));
 
-pub fn router() -> Arc<Router> {
+pub fn router() -> Arc<Mutex<Router>> {
     ROUTER.clone()
 }
 

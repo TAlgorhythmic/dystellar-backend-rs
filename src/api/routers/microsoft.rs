@@ -55,6 +55,10 @@ async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Re
 }
 
 pub async fn register() {
-    router().endpoint(Method::Get, "/api/microsoft/callback", Box::new(|req, args| {Box::new(callback(req, args))}));
-    router().endpoint(Method::Get, "/api/microsoft/login", Box::new(|req, args| {Box::new(login(req, args))}));
+    let tmp = router();
+    let mut access = tmp.lock();
+    let router = access.as_mut().unwrap();
+
+    router.endpoint(Method::Get, "/api/microsoft/callback", Box::new(|req, args| {Box::new(callback(req, args))})).expect("Failed to register microsoft callback endpoint");
+    router.endpoint(Method::Get, "/api/microsoft/login", Box::new(|req, args| {Box::new(login(req, args))})).expect("Failed to register microsoft login endpoint");
 }

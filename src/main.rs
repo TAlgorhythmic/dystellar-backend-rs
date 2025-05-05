@@ -1,13 +1,11 @@
 mod api;
 
-use api::{control::sql::setup::init_db, routers::{auth, microsoft}};
+use api::{control::sql::setup::init_db, routers::microsoft};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
 use api::service::srv;
 use hyper::service::service_fn;
-
-use api::routers;
 
 const HOST: &str = env!("HOST");
 const PORT: &str = env!("PORT");
@@ -33,7 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     init_db().await.expect("Failed to initialize database");
 
     // Register endpoints
-    auth::register();
     microsoft::register();
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
