@@ -1,6 +1,6 @@
 mod api;
 
-use api::{control::sql::setup::init_db, routers::microsoft};
+use api::{control::sql::setup::init_db, routers::{microsoft, router}};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
@@ -34,7 +34,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     microsoft::register().await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
-
     let binding = TcpListener::bind(address).await?;
 
     println!("Listening to {HOST}:{PORT}");

@@ -1,36 +1,38 @@
-use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock, RwLock}, thread::sleep, time::Duration};
+use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock, Mutex}, thread::sleep, time::Duration};
 
 use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 
-use crate::api::{typedef::{Method, SigninState}, utils::response};
+use crate::api::{typedef::{Method, SigninState}, utils::{get_body, response}};
 
 use super::router;
 
-const PENDING: LazyLock<Arc<RwLock<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(RwLock::new(HashMap::new()))});
+const PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
-async fn loginsession(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
-    let pend = PENDING;
-    let arg = args.get("uuid");
-    if arg.is_none() {
-        return Err("Invalid params".into());
+async fn loginsession(req: Request<Incoming>, _: HashMap<Box<str>, Box<str>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
+    let body = get_body(req).await?;
+    let uuidopt = body["uuid"].as_str();
+    if uuidopt.is_none() {
+        return Err("Malformed body".into());
     }
 
-    let mut guard = pend.write().unwrap();
+    let uuid = uuidopt.unwrap().to_owned();
 
-    let uuid = arg.unwrap();
+    let pend = PENDING.clone();
 
-    guard.insert(uuid.clone(), SigninState::new());
+    let mut guard = pend.lock().unwrap();
 
-    let cl = uuid.clone();
+    guard.insert(uuid.clone().into(), SigninState::new());
 
-    tokio::spawn(async move {
-        sleep(Duration::from_secs(120));
-        let pending = PENDING;
-        let mut safe = pending.write().unwrap();
+    let pend_cl = pend.clone();
+    let uuid_clone = uuid.clone();
+
+    tokio::task::spawn_local(async move {
+        tokio::time::sleep(Duration::from_secs(120)).await;
         
-        safe.remove(&cl);
+        let mut guard = pend_cl.lock().unwrap();
+        guard.remove(uuid_clone.as_str());
     });
     Ok(response(object! { ok: true }))
 }
@@ -42,7 +44,7 @@ async fn login(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Resul
         return Err("Invalid params".into());
     }
 
-    let guard = pend.read().unwrap();
+    let guard = pend.lock().unwrap();
 
     let uuid = arg.unwrap();
     let state = guard.get(uuid);
@@ -72,7 +74,7 @@ async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Re
     let code = arg0.unwrap();
     let uuid = arg1.unwrap();
     
-    let mut guard = pend.write().unwrap();
+    let mut guard = pend.lock().unwrap();
     let opt = guard.get_mut(uuid);
     if opt.is_none() {
         return Err("Invalid state.".into());
@@ -86,24 +88,23 @@ async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Re
 
 pub async fn register() {
     let tmp = router();
-    let mut access = tmp.lock();
-    let router = access.as_mut().unwrap();
+    let mut router = tmp.lock().await;
 
     router.endpoint(
         Method::Get, 
         "/api/microsoft/callback",
-        Box::new(|req, args| {Box::new(callback(req, args))})
+        Box::new(|req, args| {Box::pin(callback(req, args))})
     ).expect("Failed to register microsoft callback endpoint");
 
     router.endpoint(
         Method::Get,
         "/api/microsoft/login",
-        Box::new(|req, args| {Box::new(login(req, args))})
+        Box::new(|req, args| {Box::pin(login(req, args))})
     ).expect("Failed to register microsoft login endpoint");
 
     router.endpoint(
         Method::Post,
         "/api/microsoft/loginsession",
-        Box::new(|req, args| {Box::new(loginsession(req, args))})
+        Box::new(|req, args| {Box::pin(loginsession(req, args))})
     ).expect("Failed to register microsoft login session endpoint");
 }
