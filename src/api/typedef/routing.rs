@@ -97,7 +97,6 @@ fn register_endpoint(i: usize, node: &mut Node, split: Vec<&str>, method: Method
             next = node.subnodes.last_mut().unwrap();
         }
 
-
         register_endpoint(i + 1, next, split, method, func)
     }
 }
@@ -115,9 +114,11 @@ impl Router {
         }
 
         let mut node = &self.base;
-        for i in 1..split.len() {
-            if let Some(endpoint) = node.endpoints_search(split[i], &method) {
-                return Some(endpoint);
+        for i in 2..split.len() {
+            if i == split.len() - 1 {
+                if let Some(endpoint) = node.endpoints_search(split[i], &method) {
+                    return Some(endpoint);
+                }
             }
             if let Some(subnode) = node.subnodes_search(split[i]) {
                 node = subnode;
@@ -138,7 +139,6 @@ impl Router {
         if *split[1] != *self.base.name {
             return Err("Invalid base name in url.".into());
         }
-
-        register_endpoint(1, &mut self.base, split, method, func)
+        register_endpoint(2, &mut self.base, split, method, func)
     }
 }

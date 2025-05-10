@@ -1,24 +1,18 @@
 pub mod microsoft;
 
-use std::{collections::HashMap, error::Error, sync::{Arc, LazyLock}};
-use tokio::sync::Mutex;
+use std::{collections::HashMap, error::Error, sync::Arc};
 use hyper::{Response, Request, body::{Bytes, Incoming}};
 use http_body_util::Full;
+use tokio::sync::Mutex;
 
 use super::typedef::Router;
 
-const ROUTER: LazyLock<Arc<Mutex<Router>>> = LazyLock::new(|| Arc::new(Mutex::new(Router::new("api"))));
-
-pub fn router() -> Arc<Mutex<Router>> {
-    ROUTER.clone()
-}
-
-pub async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
+pub async fn handle(req: Request<Incoming>, router: Arc<Mutex<Router>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
     let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
     let split: Vec<&str> = req.uri().path().split('?').collect();
     
     if split.len() > 1 {
-        let args = split[1].split('%').into_iter();
+        let args = split[1].split('&').into_iter();
         for s in args {
             let keyv: Vec<&str> = s.split('=').collect();
             if keyv.len() < 2 {
@@ -29,7 +23,7 @@ pub async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box
         }
     }
     
-    if let Some(endpoint) = ROUTER.lock().await.get_endpoint(split[0], req.method().as_str().into()) {
+    if let Some(endpoint) = router.lock().await.get_endpoint(split[0], req.method().as_str().into()) {
         let fut = endpoint.get_handler()(req, map);
         return fut.await;
     }

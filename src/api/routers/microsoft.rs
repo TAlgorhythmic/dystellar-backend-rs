@@ -1,12 +1,11 @@
-use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock, Mutex}, thread::sleep, time::Duration};
+use std::{collections::HashMap, error::Error, ops::Deref, sync::{Arc, LazyLock}, time::Duration};
 
 use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
+use tokio::sync::Mutex;
 
-use crate::api::{typedef::{Method, SigninState}, utils::{get_body, response}};
-
-use super::router;
+use crate::api::{typedef::{Method, Router, SigninState}, utils::{get_body, response}};
 
 const PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -21,17 +20,17 @@ async fn loginsession(req: Request<Incoming>, _: HashMap<Box<str>, Box<str>>) ->
 
     let pend = PENDING.clone();
 
-    let mut guard = pend.lock().unwrap();
+    let mut guard = pend.lock().await;
 
     guard.insert(uuid.clone().into(), SigninState::new());
 
     let pend_cl = pend.clone();
     let uuid_clone = uuid.clone();
 
-    tokio::task::spawn_local(async move {
+    tokio::task::spawn(async move {
         tokio::time::sleep(Duration::from_secs(120)).await;
         
-        let mut guard = pend_cl.lock().unwrap();
+        let mut guard = pend_cl.lock().await;
         guard.remove(uuid_clone.as_str());
     });
     Ok(response(object! { ok: true }))
@@ -44,7 +43,7 @@ async fn login(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Resul
         return Err("Invalid params".into());
     }
 
-    let guard = pend.lock().unwrap();
+    let guard = pend.lock().await;
 
     let uuid = arg.unwrap();
     let state = guard.get(uuid);
@@ -74,7 +73,7 @@ async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Re
     let code = arg0.unwrap();
     let uuid = arg1.unwrap();
     
-    let mut guard = pend.lock().unwrap();
+    let mut guard = pend.lock().await;
     let opt = guard.get_mut(uuid);
     if opt.is_none() {
         return Err("Invalid state.".into());
@@ -86,9 +85,8 @@ async fn callback(_: Request<Incoming>, args: HashMap<Box<str>, Box<str>>) -> Re
     Ok(response(object! { ok: true, msg: "Login successful! You can now close this tab." }))
 }
 
-pub async fn register() {
-    let tmp = router();
-    let mut router = tmp.lock().await;
+pub async fn register(rout: &Arc<Mutex<Router>>) {
+    let mut router = rout.lock().await;
 
     router.endpoint(
         Method::Get, 
