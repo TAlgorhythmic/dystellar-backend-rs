@@ -10,7 +10,7 @@ use super::routers::handle;
 use super::typedef::Router;
 
 pub async fn srv(req: Request<Incoming>, router: Arc<Mutex<Router>>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
-    println!("{}", req.uri().path());
+    println!("{}", req.uri());
     let res = handle(req, router).await;
     if res.is_err() {
         let err = res.err().unwrap();

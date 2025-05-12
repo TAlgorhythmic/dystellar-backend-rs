@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 
 use http_body_util::{BodyExt, Full};
 use hyper::{body::{Bytes, Incoming}, Request, Response};
@@ -8,11 +8,53 @@ pub fn response(obj: JsonValue) -> Response<Full<Bytes>> {
     Response::new(Full::new(Bytes::from(stringify(obj))))
 }
 
-pub async fn get_body(req: Request<Incoming>) -> Result<JsonValue, Box<dyn Error + Send + Sync>> {
+pub async fn get_body_str(req: Request<Incoming>) -> Result<String, Box<dyn Error + Send + Sync>> {
     let body = req.into_body().collect().await?;
     let vec = body.to_bytes().to_vec();
     let str = String::from_utf8(vec)?;
-    let json = json::parse(str.as_str())?;
+
+    Ok(str)
+}
+
+pub async fn get_body_body_args(req: Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, Box<dyn Error + Send + Sync>> {
+    let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
+
+    let body = get_body_str(req).await?;
+    println!("{}", body);
+    let pairs = body.split('&');
+    for pair in pairs {
+        let split: Vec<&str> = pair.split('=').collect();
+        if split.len() != 2 {
+            return Err("Failed to parse url parameters (malformed url)".into());
+        }
+        map.insert(split[0].into(), split[1].replace('+', " ").into());
+    }
+    Ok(map)
+}
+
+pub async fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, Box<dyn Error + Send + Sync>> {
+    let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
+
+    let bodyopt = req.uri().query();
+    if bodyopt.is_none() {
+        return Err("No query found".into());
+    }
+
+    let body = bodyopt.unwrap();
+
+    let pairs = body.split('&');
+    for pair in pairs {
+        let split: Vec<&str> = pair.split('=').collect();
+        if split.len() != 2 {
+            return Err("Failed to parse url parameters (malformed url)".into());
+        }
+        map.insert(split[0].into(), split[1].replace('+', " ").into());
+    }
+    Ok(map)
+}
+
+pub async fn get_body_json(req: Request<Incoming>) -> Result<JsonValue, Box<dyn Error + Send + Sync>> {
+    let json = json::parse(get_body_str(req).await?.as_str())?;
 
     Ok(json)
 }
