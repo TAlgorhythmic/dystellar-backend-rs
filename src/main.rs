@@ -7,8 +7,8 @@ use hyper_util::rt::TokioIo;
 use api::service::srv;
 use hyper::service::service_fn;
 
-const HOST: &str = env!("HOST");
-const PORT: &str = env!("PORT");
+pub static HOST: &str = env!("HOST");
+pub static PORT: &str = env!("PORT");
 
 // Executor start
 #[derive(Clone)]

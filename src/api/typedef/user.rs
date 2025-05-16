@@ -1,7 +1,7 @@
-const PMS_ENABLED: u8 = 0;
-const PMS_ENABLED_WITH_IGNORELIST: u8 = 1;
-const PMS_ENABLED_FRIENDS_ONLY: u8 = 2;
-const PMS_DISABLED: u8 = 3;
+static PMS_ENABLED: u8 = 0;
+static PMS_ENABLED_WITH_IGNORELIST: u8 = 1;
+static PMS_ENABLED_FRIENDS_ONLY: u8 = 2;
+static PMS_DISABLED: u8 = 3;
 
 pub struct User {
     uuid: Box<str>,
@@ -20,7 +20,19 @@ pub struct User {
 
 impl User {
     pub fn new(uuid: &str, name: &str) -> Self {
-        Self { uuid: uuid.into(), name: name.into(), email: None, chat: true, messages: PMS_ENABLED_WITH_IGNORELIST, suffix: "".into(), lang: "en".into(), tabcompletion: false, scoreboard: true, friend_reqs: true, send_pack_prompt: true, tip_first_friend: false }
+        Self { uuid: uuid.into(),
+            name: name.into(),
+            email: None,
+            chat: true,
+            messages: PMS_ENABLED_WITH_IGNORELIST,
+            suffix: "".into(),
+            lang: "en".into(),
+            tabcompletion: false,
+            scoreboard: true,
+            friend_reqs: true,
+            send_pack_prompt: true,
+            tip_first_friend: false
+        }
     }
     
     pub fn from_existing(uuid: Box<str>, name: Box<str>, email: Option<Box<str>>, chat: bool, messages: u8, suffix: Box<str>, lang: Box<str>, tabcompletion: bool, scoreboard: bool, friend_reqs: bool, send_pack_prompt: bool, tip_first_friend: bool) -> Self {
