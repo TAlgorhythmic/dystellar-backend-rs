@@ -8,8 +8,7 @@ use tokio::sync::Mutex;
 use crate::{api::{control::http::post_urlencoded, typedef::{Method, Router, SigninState}, utils::{get_body_json, get_body_url_args, response}}, HOST, PORT};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
-static CLIENT_ID: &str = env!("CLIENT_ID");
-static CLIENT_SECRET: &str = env!("CLIENT_SECRET");
+
 
 async fn loginsession(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
     let body = get_body_json(req).await?;
@@ -56,10 +55,16 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn 
     let res = state.unwrap();
     
     let redirect = format!("{}:{}/api/microsoft/callback", HOST, PORT);
-    let code = 
+    let codeopt = res.get_code();
 
-    let auth_res = post_urlencoded("https://login.live.com/oauth20_token.srf", format!("client_id=CLIENT_ID_HERE&client_secret=CLIENT_SECRET_HERE&code=CODE_FROM_PREVIOUS_STEP&grant_type=authorization_code&redirect_uri={redirect}")).await?
+    if codeopt.is_none() {
+        return Ok(response(object! { ok: true, authenticated: false }));
+    }
 
+    let code = codeopt.as_ref().unwrap();
+
+
+    
     Ok(response(object! { ok: true, authenticated: true, code: res.get_code().as_ref().unwrap().deref() }))
 }
 
