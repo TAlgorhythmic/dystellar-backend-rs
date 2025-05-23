@@ -10,6 +10,7 @@ fn main() {
     let host: String;
     let port: i32;
     let client_id: String;
+    let redirect_uri: String;
     let client_secret: String;
 
     if profile == "release" {
@@ -17,12 +18,14 @@ fn main() {
         host = var("PROD_HOST").expect("Failed to read production HOST.");
         port = i32::from_str_radix(var("PROD_PORT").expect("Failed to read production PORT.").as_str(), 10).expect("Failed to parse int.");
         client_id = var("PROD_CLIENT_ID").expect("Failed to get PROD_CLIENT_ID");
+        redirect_uri = var("PROD_REDIRECT_URI").expect("Failed to get PROD_REDIRECT_URI");
         client_secret = var("PROD_CLIENT_SECRET").expect("Failed to read PROD_CLIENT_SECRET");
     } else {
         db_url = std::env::var("TEST_DB_URL").expect("Failed to read testing DB_URL.");
         host = var("TEST_HOST").expect("Failed to read production HOST.");
         port = i32::from_str_radix(var("TEST_PORT").expect("Failed to read production PORT.").as_str(), 10).expect("Failed to parse int.");
         client_id = var("TEST_CLIENT_ID").expect("Failed to get TEST_CLIENT_ID");
+        redirect_uri = var("TEST_REDIRECT_URI").expect("Failed to get TEST_REDIRECT_URI");
         client_secret = var("TEST_CLIENT_SECRET").expect("Failed to read TEST_CLIENT_SECRET");
     }
 
@@ -30,5 +33,6 @@ fn main() {
     println!("cargo:rustc-env=HOST={}", host);
     println!("cargo:rustc-env=PORT={}", port);
     println!("cargo:rustc-env=CLIENT_ID={}", client_id);
+    println!("cargo:rustc-env=REDIRECT_URI={}", redirect_uri);
     println!("cargo:rustc-env=CLIENT_SECRET={}", client_secret);
 }

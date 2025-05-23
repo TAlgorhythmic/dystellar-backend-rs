@@ -5,13 +5,13 @@ use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::{api::{control::http::post_urlencoded, typedef::{Method, Router, SigninState}, utils::{get_body_json, get_body_url_args, response}}, HOST, PORT};
+use crate::api::{control::{microsoft_lifecycle::login_minecraft, sql::query::create_new_player}, typedef::{Method, Router, SigninState}, utils::{get_body_json, get_body_url_args, response, HttpTransaction}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
 
 async fn loginsession(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
-    let body = get_body_json(req).await?;
+    let body = get_body_json(HttpTransaction::Req(req)).await?;
     let uuidopt = body["uuid"].as_str();
     if uuidopt.is_none() {
         return Err("Malformed body".into());
@@ -44,7 +44,6 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn 
     }
 
     let guard = pend.lock().await;
-
     let uuid = arg.unwrap();
     let state = guard.get(uuid);
 
@@ -53,19 +52,23 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn 
     }
 
     let res = state.unwrap();
-    
-    let redirect = format!("{}:{}/api/microsoft/callback", HOST, PORT);
     let codeopt = res.get_code();
-
     if codeopt.is_none() {
         return Ok(response(object! { ok: true, authenticated: false }));
     }
 
-    let code = codeopt.as_ref().unwrap();
+    let code = codeopt.as_deref().unwrap();
+    let session = login_minecraft(code).await?;
 
-
+    // Try to create new player if it doesn't exist.
+    create_new_player(session.get_uuid()).await?;
     
-    Ok(response(object! { ok: true, authenticated: true, code: res.get_code().as_ref().unwrap().deref() }))
+    Ok(response(object! {
+        ok: true,
+        authenticated: true,
+        token: session.get_token().as_ref(),
+        refresh_token: session.get_refresh_token().as_ref()
+    }))
 }
 
 async fn callback(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {

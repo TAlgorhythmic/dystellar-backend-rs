@@ -1,11 +1,11 @@
 CREATE TABLE IF NOT EXISTS players
 (
     uuid CHAR(36) NOT NULL,
-	name VARCHAR(16) NOT NULL,
+	name VARCHAR(16),
 	email VARCHAR(80),
 	pwhash CHAR(128),
 	salt CHAR(64),
-    chat BOOLEAN NOT NULL,
+    chat BOOLEAN NOT NULL DEFAULT TRUE,
     messages INTEGER NOT NULL DEFAULT 1,
     suffix VARCHAR(16) NOT NULL DEFAULT "",
     lang CHAR(2) NOT NULL DEFAULT "en",

@@ -4,22 +4,31 @@ use http_body_util::{BodyExt, Full};
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::{stringify, JsonValue};
 
+pub enum HttpTransaction {
+    Req(Request<Incoming>),
+    Res(Response<Incoming>)
+}
+
 pub fn response(obj: JsonValue) -> Response<Full<Bytes>> {
     Response::new(Full::new(Bytes::from(stringify(obj))))
 }
 
-pub async fn get_body_str(req: Request<Incoming>) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let body = req.into_body().collect().await?;
+pub async fn get_body_str(http: HttpTransaction) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let body = match http {
+        HttpTransaction::Req(req) => req.into_body().collect().await?,
+        HttpTransaction::Res(res) => res.into_body().collect().await?
+    };
+
     let vec = body.to_bytes().to_vec();
     let str = String::from_utf8(vec)?;
 
     Ok(str)
 }
 
-pub async fn get_body_body_args(req: Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, Box<dyn Error + Send + Sync>> {
+pub async fn get_body_body_args(http: HttpTransaction) -> Result<HashMap<Box<str>, Box<str>>, Box<dyn Error + Send + Sync>> {
     let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
 
-    let body = get_body_str(req).await?;
+    let body = get_body_str(http).await?;
     println!("{}", body);
     let pairs = body.split('&');
     for pair in pairs {
@@ -53,8 +62,8 @@ pub async fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<st
     Ok(map)
 }
 
-pub async fn get_body_json(req: Request<Incoming>) -> Result<JsonValue, Box<dyn Error + Send + Sync>> {
-    let json = json::parse(get_body_str(req).await?.as_str())?;
+pub async fn get_body_json(http: HttpTransaction) -> Result<JsonValue, Box<dyn Error + Send + Sync>> {
+    let json = json::parse(get_body_str(http).await?.as_str())?;
 
     Ok(json)
 }
