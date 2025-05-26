@@ -110,7 +110,10 @@ impl UserCredentials {
     pub fn get_uuid(&self) -> &Box<str> {
         &self.uuid
     }
-    pub fn get_token(&self) -> &Box<str> {
+    pub fn get_minecraft_token(&self) -> &Box<str> {
+        &self.mc_token
+    }
+    pub fn get_access_token(&self) -> &Box<str> {
         &self.access_token
     }
     pub fn get_refresh_token(&self) -> &Box<str> {
@@ -123,7 +126,10 @@ impl UserCredentials {
     pub fn set_uuid(&mut self, uuid: Box<str>) {
         self.uuid = uuid;
     }
-    pub fn set_token(&mut self, token: Box<str>) {
+    pub fn set_minecraft_token(&mut self, token: Box<str>) {
+        self.mc_token = token;
+    }
+    pub fn set_access_token(&mut self, token: Box<str>) {
         self.access_token = token;
     }
     pub fn set_refresh_token(&mut self, refresh_token: Box<str>) {

@@ -5,7 +5,7 @@ use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::api::{control::{microsoft_lifecycle::login_minecraft, sql::query::create_new_player}, typedef::{Method, Router, SigninState}, utils::{get_body_json, get_body_url_args, response, HttpTransaction}};
+use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, sql::query::create_new_player}, typedef::{Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response, HttpTransaction}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -32,6 +32,29 @@ async fn loginsession(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, B
         guard.remove(uuid.as_str());
     });
     Ok(response(object! { ok: true }))
+}
+
+async fn login_existing(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
+    let body = get_body_json(HttpTransaction::Req(req)).await?;
+
+    let opt_access_token = body["access_token"].as_str();
+    let opt_refresh_token = body["refresh_token"].as_str();
+    let opt_expiration = body["expires_in"].as_i64();
+    if opt_access_token.is_none() || opt_refresh_token.is_none() || opt_expiration.is_none() {
+        return Err("Malformed request body".into());
+    }
+
+    let tokens = MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap());
+    let user_credentials = login_minecraft_existing(tokens).await?;
+
+    Ok(response(object! {
+        ok: true,
+        uuid: user_credentials.get_uuid().as_ref(),
+        minecraft_token: user_credentials.get_minecraft_token().as_ref(),
+        access_token: user_credentials.get_access_token().as_ref(),
+        refresh_token: user_credentials.get_refresh_token().as_ref(),
+        expires_in: *user_credentials.get_expiration()
+    }))
 }
 
 async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>> {
@@ -66,8 +89,11 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Box<dyn 
     Ok(response(object! {
         ok: true,
         authenticated: true,
-        token: session.get_token().as_ref(),
-        refresh_token: session.get_refresh_token().as_ref()
+        uuid: session.get_uuid().as_ref(),
+        minecraft_token: session.get_minecraft_token().as_ref(),
+        access_token: session.get_access_token().as_ref(),
+        refresh_token: session.get_refresh_token().as_ref(),
+        expires_in: *session.get_expiration()
     }))
 }
 
@@ -115,6 +141,12 @@ pub async fn register(rout: &Arc<Mutex<Router>>) {
         "/api/microsoft/login",
         Box::new(|req| {Box::pin(login(req))})
     ).expect("Failed to register microsoft login endpoint");
+
+    router.endpoint(
+        Method::Post,
+        "/api/microsoft/login_existing",
+        Box::new(|req| {Box::pin(login_existing(req))})
+    ).expect("Failed to register login_existing endpoint");
 
     router.endpoint(
         Method::Post,
