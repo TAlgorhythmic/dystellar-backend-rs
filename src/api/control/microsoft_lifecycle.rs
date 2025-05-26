@@ -1,8 +1,8 @@
 use std::error::Error;
 
-use json::object;
+use json::{array, object};
 
-use crate::api::{typedef::{MicrosoftTokens, MinecraftLoginData, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
+use crate::api::{typedef::{MicrosoftTokens, MinecraftToken, UserCredentials, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
 
 use super::http::{post_json, post_urlencoded};
 
@@ -29,6 +29,8 @@ pub async fn get_microsoft_tokens(code: &str) -> Result<MicrosoftTokens, Box<dyn
     if opt_expiration.is_none() || opt_access_token.is_none() || opt_refresh_token.is_none() {
         return Err("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired".into());
     }
+
+    Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap()))
 }
 
 /**
@@ -58,29 +60,50 @@ pub async fn get_xbox_live_data(access_token: &str) -> Result<XboxLiveTokensData
     Ok(XboxLiveTokensData::new(token.into(), uhs.into()))
 }
 
-/**
-* Handle all minecraft login stuff and return relevant information
-*/
-pub async fn login_minecraft(code: &str) -> Result<MinecraftLoginData, Box<dyn Error + Send + Sync>> {
-    let tokens_json = get_microsoft_tokens(code).await?;
-
-    let expiration = opt_expiration.unwrap();
-    let access_token = opt_access_token.unwrap();
-    let refresh_token = opt_refresh_token.unwrap();
-
+pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, Box<dyn Error + Send + Sync>> {
     let xsts_res = post_json("https://xsts.auth.xboxlive.com/xsts/authorize", object! {
         Properties: object! {
             SandboxId: "RETAIL",
-            UserTokens
+            UserTokens: array![ xbox_live_token ]
         },
         RelyingParty: "rp://api.minecraftservices.com/",
         TokenType: "JWT"
-    })
+    }).await?;
+
+    let body = get_body_json(HttpTransaction::Res(xsts_res)).await?;
+
+    let opt = body["Token"].as_str();
+    if opt.is_none() {
+        return Err("Failed to get xsts token from microsoft".into());
+    }
+
+    Ok(opt.unwrap().into())
+}
+
+pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<MinecraftToken, Box<dyn Error + Send + Sync>> {
+    let token_res = post_json("https://api.minecraftservices.com/authentication/login_with_xbox", object! {
+        identityToken: format!("XBL3.0 x={uhs};{xsts_token}"),
+        ensureLegacyEnabled: true
+    }).await?;
+
+    let body = get_body_json(HttpTransaction::Res(token_res)).await?;
+
+
+}
+
+/**
+* Handle all minecraft login stuff and return relevant information
+*/
+pub async fn login_minecraft(code: &str) -> Result<UserCredentials, Box<dyn Error + Send + Sync>> {
+    let tokens = get_microsoft_tokens(code).await?;
+    let xbox_data = get_xbox_live_data(tokens.get_token()).await?;
+    let xsts_token = get_xbox_xts_token(&xbox_data.get_token()).await?;
+    
 }
 
 /**
 * Handle minecraft login stuff from a token/refresh_token
 */
-pub async fn login_minecraft_existing(access_token: &str, refresh_token: &str) -> Result<MinecraftLoginData, Box<dyn Error + Send + Sync>> {
+pub async fn login_minecraft_existing(access_token: &str, refresh_token: &str) -> Result<UserCredentials, Box<dyn Error + Send + Sync>> {
     
 }

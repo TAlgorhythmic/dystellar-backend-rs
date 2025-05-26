@@ -3,22 +3,42 @@ pub struct SigninState {
     code: Option<Box<str>>
 }
 
-pub struct MinecraftLoginData {
+pub struct MinecraftData {
     uuid: Box<str>,
+    token: Box<str>,
+    expires: i64
+}
+
+pub struct UserCredentials {
+    uuid: Box<str>,
+    mc_token: Box<str>,
     access_token: Box<str>,
     refresh_token: Box<str>,
-    expires: i32
+    expires: i64
 }
 
 pub struct MicrosoftTokens {
     access_token: Box<str>,
     refresh_token: Box<str>,
-    expires: i32
+    expires: i64
 }
 
 pub struct XboxLiveTokensData {
     token: Box<str>,
     uhs: Box<str>
+}
+
+impl MinecraftData {
+    pub fn new(token: &str, expires: i64) -> Self {
+        Self { token: token.into(), expires }
+    }
+
+    pub fn get_token(&self) -> &Box<str> {
+        &self.token
+    }
+    pub fn get_expiration(&self) -> &i64 {
+        &self.expires
+    }
 }
 
 impl XboxLiveTokensData {
@@ -54,7 +74,7 @@ impl SigninState {
 }
 
 impl MicrosoftTokens {
-    pub fn new(access_token: Box<str>, refresh_token: Box<str>, expiration: i32) -> Self {
+    pub fn new(access_token: Box<str>, refresh_token: Box<str>, expiration: i64) -> Self {
         Self { access_token, refresh_token, expires: expiration }
     }
 
@@ -64,7 +84,7 @@ impl MicrosoftTokens {
     pub fn get_refresh_token(&self) -> &Box<str> {
         &self.refresh_token
     }
-    pub fn get_expiration(&self) -> &i32 {
+    pub fn get_expiration(&self) -> &i64 {
         &self.expires
     }
 
@@ -74,14 +94,14 @@ impl MicrosoftTokens {
     pub fn set_refresh_token(&mut self, refresh_token: Box<str>) {
         self.refresh_token = refresh_token;
     }
-    pub fn set_expiration(&mut self, expiration: i32) {
+    pub fn set_expiration(&mut self, expiration: i64) {
         self.expires = expiration;
     }
 }
 
-impl MinecraftLoginData {
-    pub fn new(uuid: Box<str>, access_token: Box<str>, refresh_token: Box<str>, expiration: i32) -> MinecraftLoginData {
-        Self { uuid, access_token, refresh_token, expires: expiration }
+impl UserCredentials {
+    pub fn new(uuid: Box<str>, mc_token: Box<str>, access_token: Box<str>, refresh_token: Box<str>, expiration: i64) -> UserCredentials {
+        Self { uuid, mc_token, access_token, refresh_token, expires: expiration }
     }
 
     pub fn get_uuid(&self) -> &Box<str> {
@@ -93,7 +113,7 @@ impl MinecraftLoginData {
     pub fn get_refresh_token(&self) -> &Box<str> {
         &self.refresh_token
     }
-    pub fn get_expiration(&self) -> &i32 {
+    pub fn get_expiration(&self) -> &i64 {
         &self.expires
     }
 
@@ -106,7 +126,7 @@ impl MinecraftLoginData {
     pub fn set_refresh_token(&mut self, refresh_token: Box<str>) {
         self.refresh_token = refresh_token;
     }
-    pub fn set_expiration(&mut self, expiration: i32) {
+    pub fn set_expiration(&mut self, expiration: i64) {
         self.expires = expiration;
     }
 }

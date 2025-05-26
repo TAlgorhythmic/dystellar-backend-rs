@@ -5,6 +5,7 @@ mod microsoft;
 pub use user::User;
 pub use routing::*;
 pub use microsoft::SigninState;
-pub use microsoft::MinecraftLoginData;
+pub use microsoft::UserCredentials;
+pub use microsoft::MinecraftToken;
 pub use microsoft::XboxLiveTokensData;
 pub use microsoft::MicrosoftTokens;
