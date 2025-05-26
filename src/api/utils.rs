@@ -25,22 +25,6 @@ pub async fn get_body_str(http: HttpTransaction) -> Result<String, Box<dyn Error
     Ok(str)
 }
 
-pub async fn get_body_body_args(http: HttpTransaction) -> Result<HashMap<Box<str>, Box<str>>, Box<dyn Error + Send + Sync>> {
-    let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
-
-    let body = get_body_str(http).await?;
-    println!("{}", body);
-    let pairs = body.split('&');
-    for pair in pairs {
-        let split: Vec<&str> = pair.split('=').collect();
-        if split.len() != 2 {
-            return Err("Failed to parse url parameters (malformed url)".into());
-        }
-        map.insert(split[0].into(), split[1].replace('+', " ").into());
-    }
-    Ok(map)
-}
-
 pub async fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, Box<dyn Error + Send + Sync>> {
     let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
 

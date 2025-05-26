@@ -4,35 +4,38 @@ pub struct SigninState {
 }
 
 pub struct MinecraftData {
-    uuid: Box<str>,
-    token: Box<str>,
-    expires: i64
+    pub uuid: Box<str>,
+    pub token: Box<str>,
+    pub expires: i64
 }
 
 pub struct UserCredentials {
-    uuid: Box<str>,
-    mc_token: Box<str>,
-    access_token: Box<str>,
-    refresh_token: Box<str>,
-    expires: i64
+    pub uuid: Box<str>,
+    pub mc_token: Box<str>,
+    pub access_token: Box<str>,
+    pub refresh_token: Box<str>,
+    pub expires: i64
 }
 
 pub struct MicrosoftTokens {
-    access_token: Box<str>,
-    refresh_token: Box<str>,
-    expires: i64
+    pub access_token: Box<str>,
+    pub refresh_token: Box<str>,
+    pub expires: i64
 }
 
 pub struct XboxLiveTokensData {
-    token: Box<str>,
-    uhs: Box<str>
+    pub token: Box<str>,
+    pub uhs: Box<str>
 }
 
 impl MinecraftData {
-    pub fn new(token: &str, expires: i64) -> Self {
-        Self { token: token.into(), expires }
+    pub fn new(uuid: &str, token: &str, expires: i64) -> Self {
+        Self { uuid: uuid.into(), token: token.into(), expires }
     }
 
+    pub fn get_uuid(&self) -> &Box<str> {
+        &self.uuid
+    }
     pub fn get_token(&self) -> &Box<str> {
         &self.token
     }

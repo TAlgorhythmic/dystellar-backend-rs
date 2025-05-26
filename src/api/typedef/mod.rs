@@ -6,6 +6,6 @@ pub use user::User;
 pub use routing::*;
 pub use microsoft::SigninState;
 pub use microsoft::UserCredentials;
-pub use microsoft::MinecraftToken;
+pub use microsoft::MinecraftData;
 pub use microsoft::XboxLiveTokensData;
 pub use microsoft::MicrosoftTokens;
