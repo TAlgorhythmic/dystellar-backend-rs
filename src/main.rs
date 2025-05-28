@@ -1,6 +1,6 @@
 mod api;
 
-use api::{control::sql::setup::init_db, routers::microsoft, typedef::Router};
+use api::{control::sql::setup::init_db, routers::{microsoft, signal}, typedef::Router};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, sync::Mutex};
 use hyper_util::rt::TokioIo;
@@ -34,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Register endpoints
     microsoft::register(&router).await;
+    signal::register(&router).await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;

@@ -1,4 +1,5 @@
 pub mod microsoft;
+pub mod signal;
 
 use std::{error::Error, sync::Arc};
 use hyper::{Response, Request, body::{Bytes, Incoming}};
