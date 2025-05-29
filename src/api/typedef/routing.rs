@@ -6,7 +6,9 @@ use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 use http_body_util::Full;
 
-type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, Box<dyn Error + Send + Sync>>> + Send + 'static>>>;
+use super::http::BackendError;
+
+type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>>>;
 
 #[derive(PartialEq)]
 pub enum Method {

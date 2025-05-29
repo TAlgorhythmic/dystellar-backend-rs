@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let io = TokioIo::new(stream);
         
-        let cl = Arc::clone(&router);
+        let cl = router.clone();
         tokio::task::spawn(async move {
             let service = service_fn(move |req| srv(req, cl.clone()));
             let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection(io, service).await;

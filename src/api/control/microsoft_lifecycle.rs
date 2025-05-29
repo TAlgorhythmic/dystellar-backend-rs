@@ -2,7 +2,7 @@ use std::error::Error;
 
 use json::{array, object};
 
-use crate::api::{typedef::{MicrosoftTokens, MinecraftData, UserCredentials, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
+use crate::api::{typedef::{BackendError, MicrosoftTokens, MinecraftData, UserCredentials, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
 
 use super::http::{post_json, post_urlencoded};
 
@@ -13,21 +13,25 @@ static REDIRECT_URI: &str = env!("REDIRECT_URI");
 /**
 * Fetch microsoft oauth2 login token and refresh_token
 */
-pub async fn get_microsoft_tokens(code: &str) -> Result<MicrosoftTokens, Box<dyn Error + Send + Sync>> {
+pub async fn get_microsoft_tokens(code: &str) -> Result<MicrosoftTokens, BackendError> {
     let auth_res = post_urlencoded(
         "https://login.live.com/oauth20_token.srf",
         format!(
             "client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}&code={code}&grant_type=authorization_code&redirect_uri={REDIRECT_URI}"
         )
-    ).await?;
+    ).await;
 
-    let tokens_json = get_body_json(HttpTransaction::Res(auth_res)).await?;
+    if let Err(auth_res) = &auth_res {
+        return Err(BackendError::new(auth_res.to_string().as_ref(), 500));
+    }
+
+    let tokens_json = get_body_json(HttpTransaction::Res(auth_res.unwrap())).await?;
 
     let opt_expiration = tokens_json["expires_in"].as_i64();
     let opt_access_token = tokens_json["access_token"].as_str();
     let opt_refresh_token = tokens_json["refresh_token"].as_str();
     if opt_expiration.is_none() || opt_access_token.is_none() || opt_refresh_token.is_none() {
-        return Err("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired".into());
+        return Err(BackendError::new("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired", 400));
     }
 
     Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap()))
@@ -36,7 +40,7 @@ pub async fn get_microsoft_tokens(code: &str) -> Result<MicrosoftTokens, Box<dyn
 /**
 * Fetch xbox tokens to exchange later for xsts
 */
-pub async fn get_xbox_live_data(access_token: &str) -> Result<XboxLiveTokensData, Box<dyn Error + Send + Sync>> {
+pub async fn get_xbox_live_data(access_token: &str) -> Result<XboxLiveTokensData, BackendError> {
     let xbox_res = post_json("https://user.auth.xboxlive.com/user/authenticate", object! {
         Properties: object! {
             AuthMethod: "RPS",
@@ -45,14 +49,18 @@ pub async fn get_xbox_live_data(access_token: &str) -> Result<XboxLiveTokensData
         },
         RelyingParty: "http://auth.xboxlive.com",
         TokenType: "JWT"
-    }).await?;
+    }).await;
 
-    let body = get_body_json(HttpTransaction::Res(xbox_res)).await?;
+    if let Err(err) = &xbox_res {
+        return Err(BackendError::new(err.to_string().as_ref(), 500));
+    }
+
+    let body = get_body_json(HttpTransaction::Res(xbox_res.unwrap())).await?;
     let opt_token = body["Token"].as_str();
     let opt_uhs = body["DisplayClaims"]["xui"][0]["uhs"].as_str();
 
     if opt_token.is_none() || opt_uhs.is_none() {
-        return Err("Xbox live data response is incomplete, probably an error occurred.".into());
+        return Err(BackendError::new("Xbox live data response is incomplete, probably an error occurred.", 400));
     }
 
     let token = opt_token.unwrap();
@@ -63,27 +71,31 @@ pub async fn get_xbox_live_data(access_token: &str) -> Result<XboxLiveTokensData
 /**
 * Get a new microsoft oauth2 access token from a refresh token.
 */
-pub async fn refresh_access_token(refresh_token: &str) -> Result<MicrosoftTokens, Box<dyn Error + Send + Sync>> {
+pub async fn refresh_access_token(refresh_token: &str) -> Result<MicrosoftTokens, BackendError> {
     let auth_res = post_urlencoded(
         "https://login.live.com/oauth20_token.srf",
         format!(
             "client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}&refresh_token={refresh_token}&grant_type=refresh_token&redirect_uri={REDIRECT_URI}"
         )
-    ).await?;
+    ).await;
 
-    let tokens_json = get_body_json(HttpTransaction::Res(auth_res)).await?;
+    if let Err(err) = &auth_res {
+        return Err(BackendError::new(err.to_string().as_ref(), 500));
+    }
+
+    let tokens_json = get_body_json(HttpTransaction::Res(auth_res.unwrap())).await?;
 
     let opt_expiration = tokens_json["expires_in"].as_i64();
     let opt_access_token = tokens_json["access_token"].as_str();
     let opt_refresh_token = tokens_json["refresh_token"].as_str();
     if opt_expiration.is_none() || opt_access_token.is_none() || opt_refresh_token.is_none() {
-        return Err("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired".into());
+        return Err(BackendError::new("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired", 400));
     }
 
     Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap()))
 }
 
-pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, Box<dyn Error + Send + Sync>> {
+pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, BackendError> {
     let xsts_res = post_json("https://xsts.auth.xboxlive.com/xsts/authorize", object! {
         Properties: object! {
             SandboxId: "RETAIL",
@@ -91,32 +103,40 @@ pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, Box<d
         },
         RelyingParty: "rp://api.minecraftservices.com/",
         TokenType: "JWT"
-    }).await?;
+    }).await;
 
-    let body = get_body_json(HttpTransaction::Res(xsts_res)).await?;
+    if let Err(err) = &xsts_res {
+        return Err(BackendError::new(err.to_string().as_ref(), 500));
+    }
+
+    let body = get_body_json(HttpTransaction::Res(xsts_res.unwrap())).await?;
 
     let opt = body["Token"].as_str();
     if opt.is_none() {
-        return Err("Failed to get xsts token from microsoft".into());
+        return Err(BackendError::new("Failed to get xsts token from microsoft", 400));
     }
 
     Ok(opt.unwrap().into())
 }
 
-pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<MinecraftData, Box<dyn Error + Send + Sync>> {
+pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<MinecraftData, BackendError> {
     let token_res = post_json("https://api.minecraftservices.com/authentication/login_with_xbox", object! {
         identityToken: format!("XBL3.0 x={uhs};{xsts_token}"),
         ensureLegacyEnabled: true
-    }).await?;
+    }).await;
 
-    let body = get_body_json(HttpTransaction::Res(token_res)).await?;
+    if let Err(err) = &token_res {
+        return Err(BackendError::new(err.to_string().as_ref(), 500));
+    }
+
+    let body = get_body_json(HttpTransaction::Res(token_res.unwrap())).await?;
 
     let opt_username = body["username"].as_str();
     let opt_token = body["access_token"].as_str();
     let opt_expires = body["expires_in"].as_i64();
 
     if opt_username.is_none() || opt_token.is_none() || opt_expires.is_none() {
-        return Err("Failed to get minecraft data".into());
+        return Err(BackendError::new("Failed to get minecraft data", 400));
     }
 
     Ok(MinecraftData::new(opt_username.unwrap(), opt_token.unwrap(), opt_expires.unwrap()))
@@ -125,7 +145,7 @@ pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<Minecraf
 /**
 * Handle all minecraft login stuff and return relevant information
 */
-pub async fn login_minecraft(code: &str) -> Result<UserCredentials, Box<dyn Error + Send + Sync>> {
+pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError> {
     let tokens = get_microsoft_tokens(code).await?;
     let xbox_data = get_xbox_live_data(tokens.get_token()).await?;
     let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;
@@ -143,7 +163,7 @@ pub async fn login_minecraft(code: &str) -> Result<UserCredentials, Box<dyn Erro
 /**
 * Handle minecraft login stuff from a token/refresh_token
 */
-pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<UserCredentials, Box<dyn Error + Send + Sync>> {
+pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<UserCredentials, BackendError> {
     // Refresh tokens if access token is expired
     let xbox_data = {
         let xbox_data_res = get_xbox_live_data(tokens.get_refresh_token()).await;

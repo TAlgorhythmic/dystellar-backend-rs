@@ -9,3 +9,4 @@ pub use microsoft::UserCredentials;
 pub use microsoft::MinecraftData;
 pub use microsoft::XboxLiveTokensData;
 pub use microsoft::MicrosoftTokens;
+pub use http::BackendError;
