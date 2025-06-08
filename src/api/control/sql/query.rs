@@ -37,7 +37,23 @@ pub async fn get_player_from_uuid(uuid: &str) -> Result<User, Box<dyn Error + Se
         let pack_prompt: bool = row.get(9).unwrap();
         let tip_first_friend: bool = row.get(10).unwrap();
 
-        return Ok(User::from_existing(uuid.into(), name.into(), email.map(|e| e.into()), chat, messages as u8, suffix.into(), lang.into(), tabcompletion, scoreboard, friend_reqs, pack_prompt, tip_first_friend));
+        return Ok({
+            let uuid = uuid.into();
+            let name = name.into();
+            let email = email.map(|e| e.into());
+            let messages = messages as u8;
+            let suffix = suffix.into();
+            let lang = lang.into();
+            User { uuid, name, email, chat: chat, pms: messages, suffix, lang, tabcompletion: tabcompletion, scoreboard: scoreboard, friend_reqs: friend_reqs, send_pack_prompt: pack_prompt, tip_first_friend: tip_first_friend, private }
+        }
+            let uuid = uuid.into();
+            let name = name.into();
+            let email = email.map(|e| e.into());
+            let messages = messages as u8;
+            let suffix = suffix.into();
+            let lang = lang.into();
+            User { uuid, name, email, chat: chat, pms: messages, suffix, lang, tabcompletion: tabcompletion, scoreboard: scoreboard, friend_reqs: friend_reqs, send_pack_prompt: pack_prompt, tip_first_friend: tip_first_friend, private }
+        });
     }
  
     Err("Account not found.".into())

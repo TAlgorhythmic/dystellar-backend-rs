@@ -14,3 +14,4 @@ hyper-util = { version = "0.1.10", features = ["full"] }
 http-body-util = "0.1.2"
 json = "0.12.4"
 libsql = { version = "*", default-features = false, features = ["core"]}
+chrono = { version = "0.4.41", features = ["alloc", "std", "now"] }

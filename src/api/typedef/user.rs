@@ -1,3 +1,6 @@
+use json;
+use json::{object, JsonValue};
+
 static PMS_ENABLED: u8 = 0;
 static PMS_ENABLED_WITH_IGNORELIST: u8 = 1;
 static PMS_ENABLED_FRIENDS_ONLY: u8 = 2;
@@ -8,14 +11,27 @@ pub struct User {
     name: Box<str>,
     email: Option<Box<str>>,
     chat: bool,
-    messages: u8,
+    pms: u8,
     suffix: Box<str>,
     lang: Box<str>,
     tabcompletion: bool,
     scoreboard: bool,
     friend_reqs: bool,
     send_pack_prompt: bool,
-    tip_first_friend: bool
+    tip_first_friend: bool,
+    friends: Vec<Box<str>>
+    ignores: Vec<Box<str>>
+}
+
+impl From<User> for JsonValue {
+    fn from(value: User) -> Self {
+        let res = object! {
+            uuid: value.uuid.as_ref(),
+            name: value.name.as_ref(),
+            suffix: value.suffix.as_ref(),
+        };
+        
+    }
 }
 
 impl User {
@@ -24,19 +40,16 @@ impl User {
             name: name.into(),
             email: None,
             chat: true,
-            messages: PMS_ENABLED_WITH_IGNORELIST,
+            pms: PMS_ENABLED_WITH_IGNORELIST,
             suffix: "".into(),
             lang: "en".into(),
             tabcompletion: false,
             scoreboard: true,
             friend_reqs: true,
             send_pack_prompt: true,
-            tip_first_friend: false
+            tip_first_friend: false,
+            friends: vec![]
         }
-    }
-    
-    pub fn from_existing(uuid: Box<str>, name: Box<str>, email: Option<Box<str>>, chat: bool, messages: u8, suffix: Box<str>, lang: Box<str>, tabcompletion: bool, scoreboard: bool, friend_reqs: bool, send_pack_prompt: bool, tip_first_friend: bool) -> Self {
-        Self { uuid, name, email, chat, messages, suffix, lang, tabcompletion, scoreboard, friend_reqs, send_pack_prompt, tip_first_friend }
     }
 
     pub fn set_name(&mut self, name: Box<str>) {
@@ -52,7 +65,7 @@ impl User {
     }
 
     pub fn set_dms_enabled(&mut self, dms: u8) {
-        self.messages = dms;
+        self.pms = dms;
     }
 
     pub fn set_suffix(&mut self, suffix: Box<str>) {
@@ -73,5 +86,25 @@ impl User {
 
     pub fn set_tip_first_friend(&mut self, tip_first_friend: bool) {
         self.tip_first_friend = tip_first_friend;
+    }
+
+    pub fn to_json_complete(&self) -> JsonValue {
+        object! {
+            uuid: self.uuid.as_ref(),
+            name: self.name.as_ref(),
+            email: match &self.email {
+                Some(email) => email.as_ref().into(),
+                None => JsonValue::Null
+            },
+            chat: self.chat,
+            pms: self.pms,
+            suffix: self.suffix.as_ref(),
+            lang: self.lang.as_ref(),
+            tabcompletion: self.tabcompletion,
+            scoreboard: self.scoreboard,
+            friend_reqs: self.friend_reqs,
+            send_pack_prompt: self.send_pack_prompt,
+            tip_first_friend: self.tip_first_friend
+        }
     }
 }
