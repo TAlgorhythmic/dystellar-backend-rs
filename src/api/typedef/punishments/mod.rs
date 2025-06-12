@@ -19,6 +19,7 @@ pub trait Punishment:  Ord + PartialOrd + PartialEq {
     pub fn get_expiration_date(&self) -> &Option<DateTime<Utc>>;
     pub fn get_priority(&self) -> u8;
     pub fn get_type(&self) -> u8;
+    pub fn is_also_ip(&self) -> &bool;
 
     pub fn compare(&self, other: &Self) -> Ordering {
         if self.get_priority() != other.get_priority() {
