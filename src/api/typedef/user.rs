@@ -39,19 +39,7 @@ impl From<User> for JsonValue {
 
 impl User {
     pub fn new(uuid: &str, name: &str) -> Self {
-        Self { uuid: uuid.into(),
-            name: name.into(),
-            email: None,
-            chat: true,
-            pms: PMS_ENABLED_WITH_IGNORELIST,
-            suffix: "".into(),
-            lang: "en".into(),
-            scoreboard: true,
-            friend_reqs: true,
-            send_pack_prompt: true,
-            tip_first_friend: false,
-            friends: vec![]
-        }
+        
     }
 
     pub fn get_coins(&self) -> &u64 {

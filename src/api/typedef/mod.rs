@@ -4,6 +4,7 @@ mod http;
 mod microsoft;
 pub mod mailing;
 pub mod punishments;
+pub mod permissions;
 pub use user::User;
 pub use routing::*;
 pub use microsoft::SigninState;

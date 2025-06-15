@@ -54,9 +54,6 @@ CREATE TABLE IF NOT EXISTS friends
 	FOREIGN KEY (player2) REFERENCES players(uuid) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_player1 ON friends (player1);
-CREATE INDEX IF NOT EXISTS idx_player2 ON friends (player2);
-
 CREATE TABLE IF NOT EXISTS ignores
 (
 	ignored CHAR(36) NOT NULL,

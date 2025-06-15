@@ -12,6 +12,7 @@ fn main() {
     let client_id: String;
     let redirect_uri: String;
     let client_secret: String;
+    let privilege_token: String = var("PRIVILEGE_TOKEN").expect("Failed to get privilege token from env");
 
     if profile == "release" {
         db_url = var("PROD_DB_URL").expect("Failed to read production DB_URL.");
@@ -35,4 +36,5 @@ fn main() {
     println!("cargo:rustc-env=CLIENT_ID={}", client_id);
     println!("cargo:rustc-env=REDIRECT_URI={}", redirect_uri);
     println!("cargo:rustc-env=CLIENT_SECRET={}", client_secret);
+    println!("cargo:rustc-env=PRIVILEGE_TOKEN={}", privilege_token);
 }
