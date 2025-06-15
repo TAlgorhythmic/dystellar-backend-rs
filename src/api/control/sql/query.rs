@@ -14,7 +14,7 @@ pub async fn create_new_player(uuid: &str) -> Result<(), Box<dyn Error + Send + 
     Ok(())
 }
 
-pub async fn get_player_from_uuid(uuid: &str) -> Result<User, Box<dyn Error + Send + Sync>> {
+pub async fn get_player_from_uuid(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
     let client = get_client();
     let conn = client.connect()?;
     
@@ -38,23 +38,8 @@ pub async fn get_player_from_uuid(uuid: &str) -> Result<User, Box<dyn Error + Se
         let tip_first_friend: bool = row.get(10).unwrap();
 
         return Ok({
-            let uuid = uuid.into();
-            let name = name.into();
-            let email = email.map(|e| e.into());
-            let messages = messages as u8;
-            let suffix = suffix.into();
-            let lang = lang.into();
-            User { uuid, name, email, chat: chat, pms: messages, suffix, lang, tabcompletion: tabcompletion, scoreboard: scoreboard, friend_reqs: friend_reqs, send_pack_prompt: pack_prompt, tip_first_friend: tip_first_friend, private }
-        }
-            let uuid = uuid.into();
-            let name = name.into();
-            let email = email.map(|e| e.into());
-            let messages = messages as u8;
-            let suffix = suffix.into();
-            let lang = lang.into();
-            User { uuid, name, email, chat: chat, pms: messages, suffix, lang, tabcompletion: tabcompletion, scoreboard: scoreboard, friend_reqs: friend_reqs, send_pack_prompt: pack_prompt, tip_first_friend: tip_first_friend, private }
-        });
-    }
+            Some()
+        })
  
-    Err("Account not found.".into())
+    Ok(None)
 }

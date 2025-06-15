@@ -2,6 +2,7 @@ mod user;
 mod routing;
 mod http;
 mod microsoft;
+pub mod mailing;
 pub mod punishments;
 pub use user::User;
 pub use routing::*;

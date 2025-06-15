@@ -1,6 +1,8 @@
 use json;
 use json::{object, JsonValue};
 
+use crate::api::typedef::mailing::Mail;
+
 static PMS_ENABLED: u8 = 0;
 static PMS_ENABLED_WITH_IGNORELIST: u8 = 1;
 static PMS_ENABLED_FRIENDS_ONLY: u8 = 2;
@@ -14,13 +16,14 @@ pub struct User {
     pms: u8,
     suffix: Box<str>,
     lang: Box<str>,
-    tabcompletion: bool,
     scoreboard: bool,
+    coins: u64,
     friend_reqs: bool,
     send_pack_prompt: bool,
     tip_first_friend: bool,
-    friends: Vec<Box<str>>
-    ignores: Vec<Box<str>>
+    friends: Vec<Box<str>>,
+    ignores: Vec<Box<str>>,
+    inbox: Vec<Box<dyn Mail>>
 }
 
 impl From<User> for JsonValue {
@@ -43,13 +46,16 @@ impl User {
             pms: PMS_ENABLED_WITH_IGNORELIST,
             suffix: "".into(),
             lang: "en".into(),
-            tabcompletion: false,
             scoreboard: true,
             friend_reqs: true,
             send_pack_prompt: true,
             tip_first_friend: false,
             friends: vec![]
         }
+    }
+
+    pub fn get_coins(&self) -> &u64 {
+        &self.coins
     }
 
     pub fn set_name(&mut self, name: Box<str>) {
@@ -72,8 +78,8 @@ impl User {
         self.suffix = suffix;
     }
 
-    pub fn set_lang(&mut self, tabcompletion: bool) {
-        self.tabcompletion = tabcompletion;
+    pub fn set_lang(&mut self, lang: &str) {
+        self.lang = lang;
     }
 
     pub fn set_friend_reqs(&mut self, friend_reqs: bool) {
@@ -88,6 +94,8 @@ impl User {
         self.tip_first_friend = tip_first_friend;
     }
 
+    pub fn set_coins(&mut self, coins: u64) {}
+
     pub fn to_json_complete(&self) -> JsonValue {
         object! {
             uuid: self.uuid.as_ref(),
@@ -100,7 +108,6 @@ impl User {
             pms: self.pms,
             suffix: self.suffix.as_ref(),
             lang: self.lang.as_ref(),
-            tabcompletion: self.tabcompletion,
             scoreboard: self.scoreboard,
             friend_reqs: self.friend_reqs,
             send_pack_prompt: self.send_pack_prompt,
