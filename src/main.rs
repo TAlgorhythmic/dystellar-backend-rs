@@ -7,6 +7,8 @@ use hyper_util::rt::TokioIo;
 use api::service::srv;
 use hyper::service::service_fn;
 
+use crate::api::routers::privileged;
+
 pub static HOST: &str = env!("HOST");
 pub static PORT: &str = env!("PORT");
 
@@ -35,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Register endpoints
     microsoft::register(&router).await;
     signal::register(&router).await;
+    privileged::register(&router).await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;
