@@ -1,5 +1,6 @@
 pub mod microsoft;
 pub mod signal;
+pub mod privileged;
 
 use std::sync::Arc;
 use hyper::{Response, Request, body::{Bytes, Incoming}};
