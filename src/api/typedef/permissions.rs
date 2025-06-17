@@ -5,14 +5,20 @@ use chrono::{DateTime, Utc};
 static POOL: LazyLock<HashMap<i32, Arc<str>>> = LazyLock::new(|| HashMap::new());
 
 pub struct Permission {
-    permission: Arc<str>,
-    value: bool
+    pub permission: Arc<str>,
+    pub value: bool
 }
 
 pub struct Group {
     id: i32,
-    name: Box<str>,
-    prefix: Box<str>,
-    suffix: Box<str>,
-    last_modification: DateTime<Utc>
+    pub name: Box<str>,
+    pub prefix: Box<str>,
+    pub suffix: Box<str>,
+    pub last_modification: DateTime<Utc>
+}
+
+impl Group {
+    pub fn get_id(&self) -> &i32 {
+        &self.id
+    }
 }

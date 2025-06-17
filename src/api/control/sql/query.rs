@@ -20,26 +20,13 @@ pub async fn get_player_from_uuid(uuid: &str) -> Result<Option<User>, Box<dyn Er
     
     let mut stmt = conn
         .query(
-            "SELECT name, email, chat, messages, suffix, lang, tabcompletion, scoreboard, friendReqs, sendPackPrompt, tipFirstFriend FROM players WHERE uuid = ?1;",
+            "SELECT * FROM players WHERE uuid = ?1;",
             params!(uuid))
         .await?;
 
     if let Some(row) = stmt.next().await? {
-        let name: &str = row.get_str(0).unwrap();
-        let email: Option<String> = row.get(1).unwrap();
-        let chat: bool = row.get(2).unwrap();
-        let messages: i32 = row.get(3).unwrap();
-        let suffix: &str = row.get_str(4).unwrap();
-        let lang: &str = row.get_str(5).unwrap();
-        let tabcompletion: bool = row.get(6).unwrap();
-        let scoreboard: bool = row.get(7).unwrap();
-        let friend_reqs: bool = row.get(8).unwrap();
-        let pack_prompt: bool = row.get(9).unwrap();
-        let tip_first_friend: bool = row.get(10).unwrap();
 
-        return Ok({
-            Some()
-        })
- 
+        return Ok(Some())
+    }
     Ok(None)
 }
