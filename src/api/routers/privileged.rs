@@ -33,10 +33,15 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Ba
     let args = get_body_url_args(&req).await?;
     let uuid = args.get("uuid").ok_or_else(|| BackendError::new("Malformed url, uuid expected", 400))?;
     
-    let data = get_player_from_uuid(uuid).await?;
+    let data_res = get_player_from_uuid(uuid).await;
+    if let Err(err) = &data_res {
+        return Err(BackendError::new(err.to_string().as_str(), 500));
+    }
+
+    let data = data_res.unwrap();
     let obj = object! {
         ok: true,
-        data: data.map(|v| array![ v.to_json_complete() ]).or(array![])
+        data: data_res.map(|v| array![ v.to_json_complete() ]).or(array![])
     };
 
     Response::builder()
