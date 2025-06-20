@@ -33,15 +33,11 @@ impl From<User> for JsonValue {
             name: value.name.as_ref(),
             suffix: value.suffix.as_ref(),
         };
-        
+        res
     }
 }
 
 impl User {
-    pub fn new(uuid: &str, name: &str) -> Self {
-        
-    }
-
     pub fn get_coins(&self) -> &u64 {
         &self.coins
     }
@@ -67,7 +63,7 @@ impl User {
     }
 
     pub fn set_lang(&mut self, lang: &str) {
-        self.lang = lang;
+        self.lang = lang.into();
     }
 
     pub fn set_friend_reqs(&mut self, friend_reqs: bool) {
@@ -82,7 +78,9 @@ impl User {
         self.tip_first_friend = tip_first_friend;
     }
 
-    pub fn set_coins(&mut self, coins: u64) {}
+    pub fn set_coins(&mut self, coins: u64) {
+        self.coins = coins;
+    }
 
     pub fn to_json_complete(&self) -> JsonValue {
         object! {

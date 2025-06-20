@@ -6,7 +6,7 @@ static MESSAGE_SERIAL_ID: u8 = 0;
 
 pub struct Message {
     id: u64,
-    message: Box<[str]>,
+    message: Box<[Box<str>]>,
     submission_date: DateTime<Utc>,
     sender: Box<str>,
     is_deleted: bool

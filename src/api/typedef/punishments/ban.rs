@@ -4,6 +4,7 @@ use super::Punishment;
 
 pub static BAN_SERIE_ID: u8 = 0;
 
+#[derive(Eq)]
 pub struct Ban {
     id: u64,
     creation_date: DateTime<Utc>,

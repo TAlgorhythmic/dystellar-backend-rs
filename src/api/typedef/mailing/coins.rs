@@ -8,7 +8,7 @@ static COINS_SERIAL_ID: u8 = 1;
 
 pub struct Coins {
     id: u64,
-    message: Box<[str]>,
+    message: Box<[Box<str>]>,
     submission_date: DateTime<Utc>,
     sender: Box<str>,
     is_deleted: bool,
@@ -43,7 +43,7 @@ impl Claimable for Coins {
         &self.is_claimed
     }
 
-    fn claim(&self, user: &mut User) {
+    fn claim(&mut self, user: &mut User) {
         user.set_coins(*user.get_coins() + self.coins);
         self.is_claimed = true;
     }

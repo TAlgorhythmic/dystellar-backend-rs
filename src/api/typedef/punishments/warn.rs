@@ -4,6 +4,7 @@ use super::Punishment;
 
 pub static WARN_SERIE_ID: u8 = 4;
 
+#[derive(Eq)]
 pub struct Mute {
     id: u64,
     creation_date: DateTime<Utc>,
@@ -64,14 +65,14 @@ impl PartialOrd for Mute {
     }
 }
 
-impl Ord for Mute {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.compare(other)
-    }
-}
-
 impl PartialEq for Mute {
     fn eq(&self, other: &Self) -> bool {
         *self.get_id() == *other.get_id()
+    }
+}
+
+impl Ord for Mute {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.compare(other)
     }
 }

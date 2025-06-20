@@ -10,12 +10,13 @@ use crate::api::{control::sql::query::get_player_from_uuid, typedef::{BackendErr
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 
 fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
-    let header = match transaction {
-        HttpTransaction::Req(req) => req.headers().get(AUTHORIZATION),
-        HttpTransaction::Res(res) => res.headers().get(AUTHORIZATION)
+    let http = match transaction {
+        HttpTransaction::Req(req) => req.headers().to_owned(),
+        HttpTransaction::Res(res) => res.headers().to_owned()
     };
 
-    if let Some(h) = header && h.to_str() == TOKEN {
+
+    if let Some(h) = header && h.to_str().unwrap() == TOKEN {
         return Ok(());
     }
 

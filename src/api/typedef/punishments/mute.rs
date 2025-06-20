@@ -4,6 +4,7 @@ use super::Punishment;
 
 pub static MUTE_SERIE_ID: u8 = 2;
 
+#[derive(Eq)]
 pub struct Mute {
     id: u64,
     creation_date: DateTime<Utc>,

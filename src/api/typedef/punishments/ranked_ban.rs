@@ -4,6 +4,7 @@ use super::Punishment;
 
 pub static RANKED_SERIE_ID: u8 = 3;
 
+#[derive(Eq)]
 pub struct RankedBan {
     id: u64,
     creation_date: DateTime<Utc>,

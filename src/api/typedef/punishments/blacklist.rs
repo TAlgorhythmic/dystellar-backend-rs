@@ -4,6 +4,7 @@ use super::Punishment;
 
 pub static BLACKLIST_SERIE_ID: u8 = 1;
 
+#[derive(Eq)]
 pub struct Blacklist {
     id: u64,
     creation_date: DateTime<Utc>,
