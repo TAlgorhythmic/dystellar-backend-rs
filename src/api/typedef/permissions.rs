@@ -1,24 +1,20 @@
-use std::{collections::HashMap, sync::{Arc, LazyLock}};
-
 use chrono::{DateTime, Utc};
 
-static POOL: LazyLock<HashMap<i32, Arc<str>>> = LazyLock::new(|| HashMap::new());
-
 pub struct Permission {
-    pub permission: Arc<str>,
+    pub permission: Box<str>,
     pub value: bool
 }
 
 pub struct Group {
-    id: i32,
     pub name: Box<str>,
     pub prefix: Box<str>,
     pub suffix: Box<str>,
+    pub perms: Vec<Permission>,
     pub last_modification: DateTime<Utc>
 }
 
 impl Group {
-    pub fn get_id(&self) -> &i32 {
-        &self.id
+    pub fn new(name: &str) -> Self {
+        Self { name: name.into(), prefix: "".into(), suffix: "".into(), perms: vec![], last_modification: Utc::now() }
     }
 }

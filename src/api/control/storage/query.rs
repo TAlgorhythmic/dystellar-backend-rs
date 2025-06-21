@@ -1,61 +1,43 @@
-use std::error::Error;
+use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use sled::Tree;
 
-use crate::api::typedef::User;
+use crate::api::typedef::{permissions::Group, User};
 use super::setup::get_client;
 
-pub async fn create_new_player(uuid: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+// Trees
+static USERS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("users").expect("Failed to open 'users' tree")));
+static GROUPS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("groups").expect("Failed to open 'groups' tree")));
+static MAILS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("mails").expect("Failed to open 'mails' tree")));
+
+pub fn create_new_player(uuid: &str, name: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let client = get_client();
+    Ok(())
+}
+
+pub fn get_default_group_name() -> Result<Option<Box<str>>, Box<dyn Error + Send + Sync>> {
     let client = get_client();
 
-    client.inse
-    conn.query("INSERT OR IGNORE INTO players (uuid) VALUES (?1);", params!(uuid)).await?;
+    let group = client.get(b"default_group")?;
+    if group.is_none() {
+        return Ok(None);
+    }
+
+    Ok(Some(from_utf8(&group.unwrap()).unwrap().into()))
+}
+
+pub fn set_default_group(name: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    get_client().insert(b"default_group", name)?;
 
     Ok(())
 }
 
-pub async fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
-    let client = get_client();
-    let conn = client.connect()?;
+pub fn get_group_full(name: &str) -> Result<Option<Group>, Box<dyn Error + Send + Sync>> {
+    let group_opt = GROUPS.get_lt(name)?;
     
-    let mut stmt = conn
-        .query(
-            "SELECT * FROM players WHERE uuid = ?1;",
-            params!(uuid))
-        .await?;
+    Ok(group_opt.map(|json| json.into::<Group>()))
+}
 
-    if let Some(row) = stmt.next().await? {
-        let name = row.get_str(2)?;
-        let email: Option<&str> = row.get(3)?;
-        let chat: bool = row.get(6)?;
-        let pms: u8 = row.get::<i32>(7)? as u8;
-        let suffix = row.get_str(8)?;
-        let lang = row.get_str(9)?;
-        let scoreboard: bool = row.get(10)?;
-        let friend_reqs: bool = row.get(11)?;
-        let pack_prompt: bool = row.get(12)?;
-        let tip_first_friend: bool = row.get(13)?;
-        let naive = NaiveDateTime::parse_from_str(row.get_str(14)?, "%Y-%m-%d %H:%M:%S")?;
-        let creation_date: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
-        let coins: u64 = row.get::<i64>(15)? as u64;
-        let group: u64 = row.get::<i64>(16)? as u64;
-        return Ok(Some(User {
-            uuid: uuid.into(),
-            name: name.into(),
-            email: email.map(|v| v.into()),
-            chat,
-            pms,
-            suffix: suffix.into(),
-            lang: lang.into(),
-            scoreboard,
-            coins,
-            friend_reqs,
-            send_pack_prompt: pack_prompt,
-            tip_first_friend,
-            friends: vec![],
-            ignores: vec![],
-            inbox: vec![]
-        }));
-    }
-    Ok(None)
+pub async fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
+    
 }

@@ -11,7 +11,9 @@ pub fn get_client() -> Arc<Db> {
     CLIENT.clone()
 }
 
-// Change when there are data updates.
+/**
+* Change when there are data updates.
+*/
 fn update() {}
 
 pub async fn init_db() -> Result<(), Box<dyn Error + Send + Sync>> {

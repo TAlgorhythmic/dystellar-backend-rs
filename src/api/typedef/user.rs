@@ -1,12 +1,14 @@
+use chrono::{DateTime, Utc};
 use json;
 use json::{object, JsonValue};
 
+use crate::api::control::storage::query::get_default_group_name;
 use crate::api::typedef::mailing::Mail;
+use crate::api::typedef::permissions::{Group, Permission};
 
 static PMS_ENABLED: u8 = 0;
-static PMS_ENABLED_WITH_IGNORELIST: u8 = 1;
-static PMS_ENABLED_FRIENDS_ONLY: u8 = 2;
-static PMS_DISABLED: u8 = 3;
+static PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
+static PMS_DISABLED: u8 = 2;
 
 pub struct User {
     uuid: Box<str>,
@@ -19,11 +21,12 @@ pub struct User {
     scoreboard: bool,
     coins: u64,
     friend_reqs: bool,
-    send_pack_prompt: bool,
-    tip_first_friend: bool,
+    created_at: DateTime<Utc>,
     friends: Vec<Box<str>>,
     ignores: Vec<Box<str>>,
-    inbox: Vec<Box<dyn Mail>>
+    inbox: Vec<Box<dyn Mail>>,
+    perms: Vec<Permission>,
+    group: Option<Group>
 }
 
 impl From<User> for JsonValue {
@@ -38,6 +41,14 @@ impl From<User> for JsonValue {
 }
 
 impl User {
+    pub fn new_default(uuid: &str, name: &str) -> Self {
+        Self {
+            uuid: uuid.into(), name: name.into(), email: None, chat: true, pms: PMS_ENABLED,
+            suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true,
+            created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], group: get_default_group_name()
+        }
+    }
+
     pub fn get_coins(&self) -> &u64 {
         &self.coins
     }
