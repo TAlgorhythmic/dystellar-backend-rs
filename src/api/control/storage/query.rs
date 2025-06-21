@@ -1,21 +1,20 @@
 use std::error::Error;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
-use libsql::params;
 
 use crate::api::typedef::User;
 use super::setup::get_client;
 
 pub async fn create_new_player(uuid: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     let client = get_client();
-    let conn = client.connect()?;
 
+    client.inse
     conn.query("INSERT OR IGNORE INTO players (uuid) VALUES (?1);", params!(uuid)).await?;
 
     Ok(())
 }
 
-pub async fn get_player_from_uuid(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
+pub async fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
     let client = get_client();
     let conn = client.connect()?;
     

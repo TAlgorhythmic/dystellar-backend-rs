@@ -5,7 +5,7 @@ use hyper::{body::{Bytes, Incoming}, header::{AUTHORIZATION, CONTENT_TYPE}, Requ
 use json::{array, object};
 use tokio::sync::Mutex;
 
-use crate::api::{control::sql::query::get_player_from_uuid, typedef::{BackendError, Method, Router}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
+use crate::api::{control::sql::query::get_player_from_uuid_full, typedef::{BackendError, Method, Router}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 
@@ -34,7 +34,7 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Ba
     let args = get_body_url_args(&req).await?;
     let uuid = args.get("uuid").ok_or_else(|| BackendError::new("Malformed url, uuid expected", 400))?;
     
-    let data_res = get_player_from_uuid(uuid).await;
+    let data_res = get_player_from_uuid_full(uuid).await;
     if let Err(err) = &data_res {
         return Err(BackendError::new(err.to_string().as_str(), 500));
     }
