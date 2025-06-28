@@ -1,8 +1,9 @@
 use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 
+use chrono::Utc;
 use sled::Tree;
 
-use crate::api::typedef::{permissions::Group, User};
+use crate::api::{encoder::decode_datetime, typedef::{permissions::{Group, Permission}, User}};
 use super::setup::get_client;
 
 // Trees
@@ -33,18 +34,30 @@ pub fn set_default_group(name: &str) -> Result<(), Box<dyn Error + Send + Sync>>
 }
 
 pub fn get_group_full(name: &str) -> Result<Option<Group>, Box<dyn Error + Send + Sync>> {
-    let tree = *GROUPS;
+    let tree = GROUPS.clone();
+
+    let modification_raw_opt = tree.get(format!("{name}:modified_at"))?;
+    if modification_raw_opt.is_none() {
+        return Ok(None);
+    }
 
     let prefix = tree.get(format!("{name}:prefix"))?.unwrap_or("".into());
     let suffix = tree.get(format!("{name}:suffix"))?.unwrap_or("".into());
-    let last_modification = 
-    let perms = vec![];
+    let last_modification = decode_datetime(&*modification_raw_opt.unwrap())?;
+    let mut perms = vec![];
 
-    let group = Group {
-        name: name.into(), prefix: from_utf8(&prefix)?.into(), suffix: from_utf8(&suffix)?.into(), perms, last_modification
+    for key in tree.scan_prefix(format!("{name}:permissions:")) {
+        let (perm, value) = key?;
+        perms.push(Permission { permission: from_utf8(&perm)?.into(), value: value[0] != 0 });
     }
 
-    Ok(group_opt.map(|json| json.into::<Group>()))
+    Ok(Some(Group {
+        name: name.into(),
+        prefix: from_utf8(&prefix)?.into(),
+        suffix: from_utf8(&suffix)?.into(),
+        perms,
+        last_modification
+    }))
 }
 
 pub async fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
