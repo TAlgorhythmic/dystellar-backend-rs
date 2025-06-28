@@ -3,3 +3,4 @@ pub mod control;
 pub mod typedef;
 pub mod service;
 pub mod utils;
+pub mod encoder;

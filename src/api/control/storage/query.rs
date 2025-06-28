@@ -33,8 +33,17 @@ pub fn set_default_group(name: &str) -> Result<(), Box<dyn Error + Send + Sync>>
 }
 
 pub fn get_group_full(name: &str) -> Result<Option<Group>, Box<dyn Error + Send + Sync>> {
-    let group_opt = GROUPS.get_lt(name)?;
-    
+    let tree = *GROUPS;
+
+    let prefix = tree.get(format!("{name}:prefix"))?.unwrap_or("".into());
+    let suffix = tree.get(format!("{name}:suffix"))?.unwrap_or("".into());
+    let last_modification = 
+    let perms = vec![];
+
+    let group = Group {
+        name: name.into(), prefix: from_utf8(&prefix)?.into(), suffix: from_utf8(&suffix)?.into(), perms, last_modification
+    }
+
     Ok(group_opt.map(|json| json.into::<Group>()))
 }
 
