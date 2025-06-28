@@ -17,7 +17,7 @@ pub use microsoft::MicrosoftTokens;
 pub use http::BackendError;
 
 /**
-* Trait that allows easy (de)serialize from database/storage.
+* Trait that allows to easily (de)serialize from database/storage.
 */
 pub trait Serializable {
     fn load(key: &str) -> Result<Option<Self>, Box<dyn Error + Send + Sync>> where Self: Sized;
