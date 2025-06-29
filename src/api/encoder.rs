@@ -2,6 +2,34 @@ use std::error::Error;
 
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 
+pub fn encode_u64(num: u64) -> [u8; 8] {
+    [
+        (num >> 56) as u8,
+        (num >> 48) as u8,
+        (num >> 40) as u8,
+        (num >> 32) as u8,
+        (num >> 24) as u8,
+        (num >> 16) as u8,
+        (num >> 8) as u8,
+        num as u8
+    ]
+}
+
+pub fn decode_u64(data: &[u8]) -> Result<u64, Box<dyn Error + Send + Sync>> {
+    if data.len() < 8 {
+        return Err("Malformed data, expected at least size 8".into());
+    }
+
+    Ok(((data[0] as u64) << 56) |
+    ((data[1] as u64) << 48) |
+    ((data[2] as u64) << 40) |
+    ((data[3] as u64) << 32) |
+    ((data[4] as u64) << 24) |
+    ((data[5] as u64) << 16) |
+    ((data[6] as u64) << 8)  |
+    (data[7] as u64))
+}
+
 pub fn encode_datetime(time: DateTime<Utc>) -> [u8; 7] {
     let year = time.year();
     let month = time.month();

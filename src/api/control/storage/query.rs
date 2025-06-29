@@ -3,7 +3,7 @@ use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 use chrono::Utc;
 use sled::Tree;
 
-use crate::api::{encoder::decode_datetime, typedef::{permissions::{Group, Permission}, User}};
+use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::Mail, permissions::{Group, Permission}, User}};
 use super::setup::get_client;
 
 // Trees
@@ -61,5 +61,55 @@ pub fn get_group_full(name: &str) -> Result<Option<Group>, Box<dyn Error + Send 
 }
 
 pub async fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
-    
+    let tree = USERS.clone();
+
+    let name_opt = tree.get(format!("{uuid}:name"))?;
+    if name_opt.is_none() {
+        return Ok(None);
+    }
+
+    let name = from_utf8(&name_opt.unwrap())?;
+    let email = tree.get(format!("{uuid}:email"))?;
+    let chat = tree.get(format!("{uuid}:chat"))?.unwrap_or("1".into())[0] != 0;
+    let pms = tree.get(format!("{uuid}:pms"))?.unwrap_or("1".into())[0];
+    let suffix = from_utf8(&tree.get(format!("{uuid}:suffix"))?.unwrap_or("".into()))?;
+    let lang = from_utf8(&tree.get(format!("{uuid}:lang"))?.unwrap_or("en".into()))?;
+    let scoreboard = tree.get(format!("{uuid}:scoreboard"))?.unwrap_or("1".into())[0] != 0;
+    let coins = decode_u64(&*tree.get(format!("{uuid}:coins"))?.unwrap_or("\0\0\0\0\0\0\0\0".into()))?;
+    let friend_reqs = tree.get(format!("{uuid}:friend_reqs"))?.unwrap_or("1".into())[0] != 0;
+    let created_at = decode_datetime(&*tree.get(format!("{uuid}:created_at"))?.unwrap())?;
+    let friends: Vec<Box<str>> = vec![];
+    let ignores: Vec<Box<str>> = vec![];
+    let inbox: Vec<Box<dyn Mail>> = vec![];
+    let perms: Vec<Permission> = vec![];
+
+    for friend in tree.scan_prefix(format!("{uuid}:friends:")) {
+        let (key, value) = friend?;
+        if value[0] != 0 {
+            if let Ok(f) = from_utf8(&key) {
+                friends.push(f.into());
+            }
+        }
+    }
+    for ignore in tree.scan_prefix(format!("{uuid}:ignores:")) {
+        let (key, value) = ignore?;
+        if value[0] != 0 {
+            if let Ok(ig) = from_utf8(&value) {
+                ignores.push(ig.into());
+            }
+        }
+    }
+
+    let user = User {
+        uuid: uuid.into(),
+        name: name.into(),
+        email: email.map(|em| from_utf8(&em).unwrap().into()),
+        chat, pms,
+        suffix: suffix.into(),
+        lang: lang.into(),
+        scoreboard, coins, friend_reqs,
+        created_at, friends, ignores,
+        inbox, perms, group
+    };
+    Ok(Some(user))
 }
