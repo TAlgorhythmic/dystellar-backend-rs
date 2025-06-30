@@ -1,19 +1,35 @@
 use chrono::{DateTime, Utc};
+use json::JsonValue;
 
-use crate::api::typedef::User;
+use crate::api::{encoder::decode_datetime, typedef::User};
 
 use super::{Mail, Claimable};
 
 static COINS_SERIAL_ID: u8 = 1;
 
 pub struct Coins {
-    id: u64,
-    message: Box<[Box<str>]>,
+    message: Box<str>,
     submission_date: DateTime<Utc>,
     sender: Box<str>,
     is_deleted: bool,
     coins: u64,
     is_claimed: bool
+}
+
+impl From<JsonValue> for Coins {
+    fn from(value: JsonValue) -> Self {
+        let submission_date_opt = value["submission_date"].as_str();
+        let submission_date = if let Some(str) = submission_date_opt {decode_datetime(str.as_bytes()).unwrap_or(Utc::now())} else {Utc::now()};
+
+        Self {
+            message: value["msg"].as_str().unwrap_or("Message not provided.").into(),
+            submission_date,
+            sender: value["sender"].as_str().unwrap_or("Unknown sender").into(),
+            is_deleted: value["deleted"].as_bool().unwrap_or(false),
+            coins: value["coins"].as_u64().unwrap_or(0),
+            is_claimed: value["claimed"].as_bool().unwrap_or(true)
+        }
+    }
 }
 
 impl Mail for Coins {
@@ -31,10 +47,6 @@ impl Mail for Coins {
 
     fn is_deleted(&self) -> &bool {
         &self.is_deleted
-    }
-
-    fn get_id(&self) -> &u64 {
-        &self.id
     }
 }
 

@@ -1,15 +1,31 @@
 use chrono::{DateTime, Utc};
+use json::JsonValue;
+
+use crate::api::encoder::decode_datetime;
 
 use super::Mail;
 
 static MESSAGE_SERIAL_ID: u8 = 0;
 
 pub struct Message {
-    id: u64,
-    message: Box<[Box<str>]>,
+    message: Box<str>,
     submission_date: DateTime<Utc>,
     sender: Box<str>,
     is_deleted: bool
+}
+
+impl From<JsonValue> for Message {
+    fn from(value: JsonValue) -> Self {
+        let submission_date_opt = value["submission_date"].as_str();
+        let submission_date = if let Some(str) = submission_date_opt {decode_datetime(str.as_bytes()).unwrap_or(Utc::now())} else {Utc::now()};
+
+        Self {
+            message: value["msg"].as_str().unwrap_or("Message not provided.").into(),
+            submission_date,
+            sender: value["sender"].as_str().unwrap_or("Unknown sender").into(),
+            is_deleted: value["deleted"].as_bool().unwrap_or(false)
+        }
+    }
 }
 
 impl Mail for Message {
@@ -27,9 +43,5 @@ impl Mail for Message {
 
     fn is_deleted(&self) -> &bool {
         &self.is_deleted
-    }
-
-    fn get_id(&self) -> &u64 {
-        &self.id
     }
 }
