@@ -11,6 +11,7 @@ pub trait Mail: From<JsonValue> {
     fn get_sender(&self) -> &str;
     fn get_submission_date(&self) -> &DateTime<Utc>;
     fn is_deleted(&self) -> &bool;
+    fn to_json(&self) -> JsonValue;
 }
 
 pub trait Claimable {

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use json::JsonValue;
+use json::{object, JsonValue};
 
 use crate::api::{encoder::decode_datetime, typedef::User};
 
@@ -47,6 +47,18 @@ impl Mail for Coins {
 
     fn is_deleted(&self) -> &bool {
         &self.is_deleted
+    }
+
+    fn to_json(&self) -> JsonValue {
+        object! {
+            "type": COINS_SERIAL_ID,
+            "msg": self.message.as_ref(),
+            "submission_date": self.submission_date.to_string(),
+            "sender": self.sender.as_ref(),
+            "deleted": self.is_deleted,
+            "coins": self.coins,
+            "claimed": self.is_claimed
+        }
     }
 }
 
