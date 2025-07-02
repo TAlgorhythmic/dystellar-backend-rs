@@ -1,7 +1,6 @@
 use std::str::from_utf8;
 
 use chrono::{DateTime, Utc};
-use json::{self, array, Array};
 use json::{object, JsonValue};
 
 use crate::api::control::storage::query::{get_default_group_name, get_group_full};
@@ -13,22 +12,22 @@ static PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
 static PMS_DISABLED: u8 = 2;
 
 pub struct User {
-    uuid: Box<str>,
-    name: Box<str>,
-    email: Option<Box<str>>,
-    chat: bool,
-    pms: u8,
-    suffix: Box<str>,
-    lang: Box<str>,
-    scoreboard: bool,
-    coins: u64,
-    friend_reqs: bool,
-    created_at: DateTime<Utc>,
-    friends: Vec<Box<str>>,
-    ignores: Vec<Box<str>>,
-    inbox: Vec<Box<dyn Mail>>,
-    perms: Vec<Permission>,
-    group: Option<Group>
+    pub uuid: Box<str>,
+    pub name: Box<str>,
+    pub email: Option<Box<str>>,
+    pub chat: bool,
+    pub pms: u8,
+    pub suffix: Box<str>,
+    pub lang: Box<str>,
+    pub scoreboard: bool,
+    pub coins: u64,
+    pub friend_reqs: bool,
+    pub created_at: DateTime<Utc>,
+    pub friends: Vec<Box<str>>,
+    pub ignores: Vec<Box<str>>,
+    pub inbox: Vec<Box<dyn Mail>>,
+    pub perms: Vec<Permission>,
+    pub group: Option<Group>
 }
 
 impl From<User> for JsonValue {
