@@ -1,11 +1,11 @@
-use std::{collections::HashMap, error::Error, sync::{Arc, LazyLock}, time::Duration};
+use std::{collections::HashMap, sync::{Arc, LazyLock}, time::Duration};
 
 use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, sql::query::create_new_player}, typedef::{BackendError, Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
+use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::create_new_player}, typedef::{BackendError, Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -139,7 +139,7 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
     let session = login_minecraft(code).await?;
 
     // Try to create new player if it doesn't exist.
-    if let Err(err) = create_new_player(session.get_uuid()).await {
+    if let Err(err) = create_new_player(session.get_uuid().as_ref()) {
         println!("Failed to create user in the database: {err}");
         return Err(BackendError::new("Backend internal error.", 500));
     }

@@ -5,7 +5,7 @@ use crate::api::{encoder::decode_datetime, typedef::User};
 
 use super::{Mail, Claimable};
 
-static COINS_SERIAL_ID: u8 = 1;
+pub const COINS_SERIAL_ID: u8 = 1;
 
 pub struct Coins {
     message: Box<str>,
@@ -16,8 +16,8 @@ pub struct Coins {
     is_claimed: bool
 }
 
-impl From<JsonValue> for Coins {
-    fn from(value: JsonValue) -> Self {
+impl Mail for Coins {
+    fn from_json(value: JsonValue) -> Self {
         let submission_date_opt = value["submission_date"].as_str();
         let submission_date = if let Some(str) = submission_date_opt {decode_datetime(str.as_bytes()).unwrap_or(Utc::now())} else {Utc::now()};
 
@@ -30,9 +30,7 @@ impl From<JsonValue> for Coins {
             is_claimed: value["claimed"].as_bool().unwrap_or(true)
         }
     }
-}
 
-impl Mail for Coins {
     fn get_serial_id(&self) -> u8 {
         COINS_SERIAL_ID
     }

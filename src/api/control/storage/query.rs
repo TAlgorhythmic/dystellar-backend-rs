@@ -1,8 +1,9 @@
 use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 
+use json::parse;
 use sled::{IVec, Tree};
 
-use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::Mail, permissions::{Group, Permission}, User}};
+use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::{get_mail_from_json, Mail}, permissions::{Group, Permission}, User}};
 use super::setup::get_client;
 
 // Trees
@@ -102,8 +103,20 @@ fn get_ignores(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, Box<dyn Er
     Ok(ignores)
 }
 
-fn get_mails(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Mail>>, Box<dyn Error + Send + Sync>> {
-    
+fn get_user_mails(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Mail>>, Box<dyn Error + Send + Sync>> {
+    let mut mails = vec![];
+    let opt = tree.get(format!("{uuid}:mails"))?;
+    if opt.is_none() {
+        return Ok(mails);
+    }
+
+    let json = parse(from_utf8(&opt.unwrap())?)?;
+
+    for mail_json in json.members() {
+        mails.push(get_mail_from_json(mail_json.to_owned())?);
+    }
+
+    Ok(mails)
 }
 
 fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>, Box<dyn Error + Send + Sync>> {
@@ -141,7 +154,7 @@ pub fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Err
     let created_at = decode_datetime(&*tree.get(format!("{uuid}:created_at"))?.unwrap())?;
     let friends: Vec<Box<str>> = get_friends(uuid, &tree)?;
     let ignores: Vec<Box<str>> = get_ignores(uuid, &tree)?;
-    let inbox: Vec<Box<dyn Mail>> = get_mails(uuid, &tree)?;
+    let inbox: Vec<Box<dyn Mail>> = get_user_mails(uuid, &tree)?;
     let perms: Vec<Permission> = get_user_permissions(uuid, &tree)?;
     let group = get_group_from_opt(tree.get(format!("{uuid}:group"))?)?;
 

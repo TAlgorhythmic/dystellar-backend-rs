@@ -1,8 +1,10 @@
+use std::str::from_utf8;
+
 use chrono::{DateTime, Utc};
-use json;
+use json::{self, array, Array};
 use json::{object, JsonValue};
 
-use crate::api::control::storage::query::get_default_group_name;
+use crate::api::control::storage::query::{get_default_group_name, get_group_full};
 use crate::api::typedef::mailing::Mail;
 use crate::api::typedef::permissions::{Group, Permission};
 
@@ -41,11 +43,60 @@ impl From<User> for JsonValue {
 }
 
 impl User {
+    pub fn to_json_complete(&self) -> JsonValue {
+        object! {
+            uuid: self.uuid.as_ref(),
+            name: self.name.as_ref(),
+            email: match &self.email {
+                Some(email) => email.as_ref().into(),
+                None => JsonValue::Null
+            },
+            chat: self.chat,
+            pms: self.pms,
+            suffix: self.suffix.as_ref(),
+            lang: self.lang.as_ref(),
+            scoreboard: self.scoreboard,
+            coins: self.coins,
+            friend_reqs: self.friend_reqs,
+            created_at: self.created_at.to_rfc3339(),
+            friends: JsonValue::Array(
+                self.friends
+                    .iter()
+                    .map(|friend| friend.as_ref().into()).collect()
+            ),
+            ignores: JsonValue::Array(
+                self.ignores
+                    .iter()
+                    .map(|ignore| ignore.as_ref().into()).collect()
+            ),
+            inbox: JsonValue::Array(
+                self.inbox
+                    .iter()
+                    .map(|mail| mail.to_json()).collect()
+            )
+        }
+    }
+
     pub fn new_default(uuid: &str, name: &str) -> Self {
+        let group_default = match get_default_group_name() {
+            Ok(Some(group_name)) => {
+                let group_name_str = from_utf8(&group_name);
+                match group_name_str {
+                    Ok(name_str) => match get_group_full(name_str) {
+                        Ok(group) => group,
+                        Err(_) => None,
+                    },
+                    Err(_) => None,
+                }
+            }
+            _ => None,
+        };
+        
+
         Self {
             uuid: uuid.into(), name: name.into(), email: None, chat: true, pms: PMS_ENABLED,
             suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true,
-            created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], group: get_default_group_name()
+            created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], perms: vec![], group: group_default
         }
     }
 
@@ -81,34 +132,7 @@ impl User {
         self.friend_reqs = friend_reqs;
     }
 
-    pub fn set_pack_prompt(&mut self, send_pack_prompt: bool) {
-        self.send_pack_prompt = send_pack_prompt;
-    }
-
-    pub fn set_tip_first_friend(&mut self, tip_first_friend: bool) {
-        self.tip_first_friend = tip_first_friend;
-    }
-
     pub fn set_coins(&mut self, coins: u64) {
         self.coins = coins;
-    }
-
-    pub fn to_json_complete(&self) -> JsonValue {
-        object! {
-            uuid: self.uuid.as_ref(),
-            name: self.name.as_ref(),
-            email: match &self.email {
-                Some(email) => email.as_ref().into(),
-                None => JsonValue::Null
-            },
-            chat: self.chat,
-            pms: self.pms,
-            suffix: self.suffix.as_ref(),
-            lang: self.lang.as_ref(),
-            scoreboard: self.scoreboard,
-            friend_reqs: self.friend_reqs,
-            send_pack_prompt: self.send_pack_prompt,
-            tip_first_friend: self.tip_first_friend
-        }
     }
 }

@@ -1,12 +1,15 @@
 pub mod coins;
 pub mod message;
 
+use std::error::Error;
+
 use chrono::{DateTime, Utc};
 use json::JsonValue;
 
 use crate::api::typedef::User;
 
-pub trait Mail: From<JsonValue> {
+pub trait Mail {
+    fn from_json(json: JsonValue) -> Self where Self: Sized;
     fn get_serial_id(&self) -> u8;
     fn get_sender(&self) -> &str;
     fn get_submission_date(&self) -> &DateTime<Utc>;
@@ -17,4 +20,21 @@ pub trait Mail: From<JsonValue> {
 pub trait Claimable {
     fn is_claimed(&self) -> &bool;
     fn claim(&mut self, user: &mut User);
+}
+
+pub fn get_mail_from_json(json: JsonValue) -> Result<Box<dyn Mail>, Box<dyn Error + Send + Sync>> {
+    let type_opt = json["type"].as_u8();
+
+    if type_opt.is_none() {
+        return Err("Malformed mail, a type field is required".into());
+    }
+
+    let serial = unsafe {type_opt.unwrap_unchecked()};
+
+    let res: Result<Box<dyn Mail>, Box<dyn Error + Send + Sync>> = match serial {
+        coins::COINS_SERIAL_ID => Ok(Box::new(coins::Coins::from_json(json))),
+        message::MESSAGE_SERIAL_ID => Ok(Box::new(message::Message::from_json(json))),
+        _ => Err("This type does not exist".into())
+    };
+    res
 }

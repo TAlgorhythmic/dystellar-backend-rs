@@ -5,7 +5,7 @@ use crate::api::encoder::decode_datetime;
 
 use super::Mail;
 
-static MESSAGE_SERIAL_ID: u8 = 0;
+pub const MESSAGE_SERIAL_ID: u8 = 0;
 
 pub struct Message {
     message: Box<str>,
@@ -14,8 +14,8 @@ pub struct Message {
     is_deleted: bool
 }
 
-impl From<JsonValue> for Message {
-    fn from(value: JsonValue) -> Self {
+impl Mail for Message {
+    fn from_json(value: JsonValue) -> Self {
         let submission_date_opt = value["submission_date"].as_str();
         let submission_date = if let Some(str) = submission_date_opt {decode_datetime(str.as_bytes()).unwrap_or(Utc::now())} else {Utc::now()};
 
@@ -26,9 +26,7 @@ impl From<JsonValue> for Message {
             is_deleted: value["deleted"].as_bool().unwrap_or(false)
         }
     }
-}
 
-impl Mail for Message {
     fn get_serial_id(&self) -> u8 {
         MESSAGE_SERIAL_ID
     }
