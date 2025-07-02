@@ -139,7 +139,7 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
     let session = login_minecraft(code).await?;
 
     // Try to create new player if it doesn't exist.
-    if let Err(err) = create_new_player(session.get_uuid().as_ref()) {
+    if let Err(err) = create_new_player(session.get_uuid().as_ref(), session.name.as_ref()) {
         println!("Failed to create user in the database: {err}");
         return Err(BackendError::new("Backend internal error.", 500));
     }
