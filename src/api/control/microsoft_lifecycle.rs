@@ -1,8 +1,9 @@
-use std::error::Error;
+use std::{error::Error, str::FromStr};
 
+use hyper::header::{HeaderValue, AUTHORIZATION};
 use json::{array, object};
 
-use crate::api::{typedef::{BackendError, MicrosoftTokens, MinecraftData, UserCredentials, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
+use crate::api::{control::http::get_json, typedef::{BackendError, MicrosoftTokens, MinecraftData, UserCredentials, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
 
 use super::http::{post_json, post_urlencoded};
 
@@ -150,14 +151,36 @@ pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError
     let xbox_data = get_xbox_live_data(tokens.get_token()).await?;
     let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;
     let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_token.as_ref()).await?;
+    let name = get_minecraft_username(minecraft_data.get_token()).await?;
 
     Ok(UserCredentials::new(
         minecraft_data.uuid,
+        name,
         minecraft_data.token,
         tokens.access_token,
         tokens.refresh_token,
         minecraft_data.expires
     ))
+}
+
+pub async fn get_minecraft_username(mc_token: &str) -> Result<Box<str>, BackendError> {
+    let res = get_json(
+        "https://api.minecraftservices.com/minecraft/profile",
+        Some(&[(AUTHORIZATION, HeaderValue::from_str(format!("Bearer {mc_token}").as_str()).unwrap())])
+    ).await;
+
+    if res.is_err() {
+        return Err(BackendError::new("Failed to get username", 400));
+    }
+
+    let json = get_body_json(HttpTransaction::Res(res.unwrap())).await?;
+    let name = json["name"].as_str();
+    
+    if name.is_none() {
+        return Err(BackendError::new("Failed to get username, json format differs from expected", 500));
+    }
+
+    Ok(name.unwrap().into())
 }
 
 /**
@@ -182,9 +205,11 @@ pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<Use
 
     let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;
     let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_token.as_ref()).await?;
+    let name = get_minecraft_username(minecraft_data.get_token()).await?;
 
     Ok(UserCredentials::new(
         minecraft_data.uuid,
+        name,
         minecraft_data.token,
         tokens.access_token,
         tokens.refresh_token,

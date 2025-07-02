@@ -11,6 +11,7 @@ pub struct MinecraftData {
 
 pub struct UserCredentials {
     pub uuid: Box<str>,
+    pub name: Box<str>,
     pub mc_token: Box<str>,
     pub access_token: Box<str>,
     pub refresh_token: Box<str>,
@@ -103,8 +104,8 @@ impl MicrosoftTokens {
 }
 
 impl UserCredentials {
-    pub fn new(uuid: Box<str>, mc_token: Box<str>, access_token: Box<str>, refresh_token: Box<str>, expiration: i64) -> UserCredentials {
-        Self { uuid, mc_token, access_token, refresh_token, expires: expiration }
+    pub fn new(uuid: Box<str>, name: Box<str>, mc_token: Box<str>, access_token: Box<str>, refresh_token: Box<str>, expiration: i64) -> UserCredentials {
+        Self { uuid, name, mc_token, access_token, refresh_token, expires: expiration }
     }
 
     pub fn get_uuid(&self) -> &Box<str> {
