@@ -54,7 +54,7 @@ impl Punishment for Ban {
         BAN_SERIE_ID
     }
 
-    pub fn is_also_ip(&self) -> &bool {
+    fn is_also_ip(&self) -> &bool {
         &self.alsoip
     }
 }
