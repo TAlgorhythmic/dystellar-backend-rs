@@ -31,7 +31,7 @@ fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
 * authorized IP.
 */
 async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
-    if ALLOWED_IPS.split(',').find(|&all_ip| all_ip == req.uri().host().unwrap()).is_none() {
+    if ALLOWED_IPS == req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
 
