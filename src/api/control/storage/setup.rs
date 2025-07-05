@@ -3,7 +3,6 @@ use std::{error::Error, sync::{Arc, LazyLock}};
 use sled::{open, Db};
 
 static DB_VERSION: u8 = 0;
-static DB_URL: &str = env!("DB_URL");
 
 static CLIENT: LazyLock<Arc<Db>> = LazyLock::new(|| Arc::new(open("data").expect("Failed to create database, likely a permissions problem")));
 

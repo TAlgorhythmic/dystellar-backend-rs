@@ -5,9 +5,10 @@ use hyper::{body::{Bytes, Incoming}, header::{AUTHORIZATION, CONTENT_TYPE}, Requ
 use json::{array, object, stringify};
 use tokio::sync::Mutex;
 
-use crate::api::{control::{storage::query::get_player_from_uuid_full}, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
+use crate::api::{control::storage::query::get_player_from_uuid_full, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
+static ALLOWED_IPS: &str = env!("PRIVILEGED_AUTHORIZED_IP");
 
 fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
     let http = match transaction {
@@ -26,10 +27,14 @@ fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
 }
 
 /**
-* A simple endpoint that returns an ok response, used to check the status of the backend if its
-* running or not
+* An endpoint used to get the full data of a user, requires a unique token and being from an
+* authorized IP.
 */
 async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
+    if ALLOWED_IPS.split(',').find(|&all_ip| all_ip == req.uri().host().unwrap()).is_none() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+
     let args = get_body_url_args(&req).await?;
     let uuid = args.get("uuid").ok_or_else(|| BackendError::new("Malformed url, uuid expected", 400))?;
 
