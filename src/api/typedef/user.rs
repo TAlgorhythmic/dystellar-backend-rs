@@ -6,6 +6,7 @@ use json::{object, JsonValue};
 use crate::api::control::storage::query::{get_default_group_name, get_group_full};
 use crate::api::typedef::mailing::Mail;
 use crate::api::typedef::permissions::{Group, Permission};
+use crate::api::typedef::punishments::Punishment;
 
 static PMS_ENABLED: u8 = 0;
 static PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
@@ -26,6 +27,7 @@ pub struct User {
     pub friends: Vec<Box<str>>,
     pub ignores: Vec<Box<str>>,
     pub inbox: Vec<Box<dyn Mail>>,
+    pub punishments: Vec<Box<dyn Punishment>>,
     pub perms: Vec<Permission>,
     pub group: Option<Group>
 }
@@ -36,6 +38,8 @@ impl From<User> for JsonValue {
             uuid: value.uuid.as_ref(),
             name: value.name.as_ref(),
             suffix: value.suffix.as_ref(),
+            created_at: value.created_at.to_string(),
+            punishments: ""sff
         };
         res
     }
@@ -57,7 +61,7 @@ impl User {
             scoreboard: self.scoreboard,
             coins: self.coins,
             friend_reqs: self.friend_reqs,
-            created_at: self.created_at.to_rfc3339(),
+            created_at: self.created_at.to_string(),
             friends: JsonValue::Array(
                 self.friends
                     .iter()

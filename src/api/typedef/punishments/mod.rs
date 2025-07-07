@@ -7,6 +7,7 @@ pub mod warn;
 use std::cmp::Ordering;
 
 use chrono::{DateTime, Utc};
+use json::JsonValue;
 
 pub trait Punishment:  Ord + Eq + PartialOrd + PartialEq {
     fn get_id(&self) -> &u64;
@@ -20,6 +21,7 @@ pub trait Punishment:  Ord + Eq + PartialOrd + PartialEq {
     fn get_priority(&self) -> u8;
     fn get_type(&self) -> u8;
     fn is_also_ip(&self) -> &bool;
+    fn to_json(&self) -> JsonValue;
 
     fn compare(&self, other: &Self) -> Ordering {
         if self.get_priority() != other.get_priority() {

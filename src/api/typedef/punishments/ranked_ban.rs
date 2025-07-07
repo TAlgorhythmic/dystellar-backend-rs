@@ -57,6 +57,10 @@ impl Punishment for RankedBan {
     fn is_also_ip(&self) -> &bool {
         &self.alsoip
     }
+
+    fn to_json(&self) -> json::JsonValue {
+        todo!()
+    }
 }
 
 impl PartialOrd for RankedBan {
