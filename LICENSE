@@ -1,35 +1,33 @@
 ORGANIZATION-EXCLUSIVE LICENSE
 
-Copyright (c) [2025] [Dystellar Network]. All rights reserved.
+Copyright (c) [2025] Dystellar Network. All rights reserved.
 
-1. **Limited License Grant**:
-   The source code, compiled builds, executables, and any other form of the software (hereafter referred to as "the Software") are provided under this exclusive license. You, as a member of the designated organization, are granted permission to use, modify, and distribute the Software **only within your organization**. Usage outside of the organization is strictly prohibited.
+---
 
-2. **No Access for External Parties**:
-   The source code, builds, or any derivative works **may not** be accessed, distributed, or shared with any entity, individual, or organization outside of your own organization without explicit written consent from the copyright holder.
+## 1. License Grant
 
-3. **No Redistribution**:
-   You may not redistribute, sell, or sublicense the Software, or any part thereof, to any third party. The Software is for internal use by the organization only.
+You are free to **view, use, compile, run, and modify** the Software for personal or educational purposes.
 
-4. **Modification Rights**:
-   The organization is granted the right to modify the Software. However, such modifications and derivative works **must not be distributed** outside of the organization and **cannot** be shared with external parties without written permission from the copyright holder.
+You may also **contribute** improvements via pull requests or patches.
 
-5. **No Reverse Engineering**:
-   You may not reverse-engineer, decompile, or disassemble the Software, except to the extent that such activity is expressly permitted by applicable law.
+## 2. No Forking
 
-6. **Confidentiality**:
-   The Software and its source code are considered confidential and proprietary. You, as a member of the organization, agree to maintain the confidentiality of the Software and not to disclose it to any unauthorized third parties.
+You **may NOT fork, clone, or create derivative repositories** of this Software on any platform (including GitHub) without explicit written permission from the copyright holder.
 
-7. **No Commercial Use Outside Organization**:
-   The Software is not licensed for **commercial** use outside of the designated organization. Any attempt to use, distribute, or sublicense the Software for commercial purposes, including but not limited to reselling or distributing for a fee, is strictly prohibited unless written permission is granted by the copyright holder.
+## 3. No Commercial Use Outside Organization
 
-8. **License Termination**:
-   This license will be terminated automatically if the Software is used in any manner that violates the terms of this agreement. Upon termination, all copies of the Software must be immediately destroyed or returned to the copyright holder.
+The Software **may not be used for commercial purposes outside of Dystellar Network or its authorized affiliates** without express written permission.
 
-9. **Warranty Disclaimer**:
-   The Software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, or non-infringement.
+## 4. Redistribution and Sharing
 
-10. **Permission for Auditing**:
-    The copyright holder reserves the right to audit the usage of the Software by your organization to ensure compliance with the terms of this license.
+You **may not redistribute, sublicense, or share** the Software or derivative works outside of contributing back to this repository.
 
-For any inquiries regarding further permissions, licensing, or redistribution, please contact [support@dystellar.gg].
+## 5. Modification
+
+You may modify the Software locally for your own use.
+
+If you want to distribute modifications, you must submit them as contributions to this repository.
+
+---
+
+For inquiries or permission requests, contact [support@dystellar.gg].
