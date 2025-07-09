@@ -7,7 +7,6 @@ use tokio::sync::Mutex;
 
 use crate::api::{typedef::{BackendError, Method, Router}, utils::response_json};
 
-
 /**
 * A simple endpoint that returns an ok response, used to check the status of the backend if its
 * running or not

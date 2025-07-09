@@ -5,10 +5,10 @@ use hyper::{body::{Bytes, Incoming}, header::{AUTHORIZATION, CONTENT_TYPE}, Requ
 use json::{array, object, stringify};
 use tokio::sync::Mutex;
 
-use crate::api::{control::storage::query::get_player_from_uuid_full, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
+use crate::api::{control::storage::query::get_user_from_uuid, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
-static ALLOWED_IPS: &str = env!("PRIVILEGED_AUTHORIZED_IP");
+static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
 
 fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
     let http = match transaction {
@@ -31,17 +31,17 @@ fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
 * authorized IP.
 */
 async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
-    if ALLOWED_IPS == req.uri().host().unwrap() {
+    if ALLOWED_IP == req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
 
     let args = get_body_url_args(&req).await?;
-    let uuid = args.get("uuid").ok_or_else(|| BackendError::new("Malformed url, uuid expected", 400))?;
+    let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid expected", 400))?;
 
     let transaction = HttpTransaction::Req(req);
     check_token(transaction)?;
     
-    let data_res = get_player_from_uuid_full(uuid);
+    let data_res = get_user_from_uuid(uuid);
     if let Err(err) = &data_res {
         return Err(BackendError::new(err.to_string().as_str(), 500));
     }
