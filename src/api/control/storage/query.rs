@@ -3,17 +3,40 @@ use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 use json::parse;
 use sled::{IVec, Tree};
 
-use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::{get_mail_from_json, get_mails_from_json, Mail}, permissions::{Group, Permission}, punishments::{get_punishments_from_json, Punishment}, User}};
+use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::{get_mails_from_json, Mail}, permissions::{Group, Permission}, punishments::{get_punishments_from_json, Punishment}, User}};
 use super::setup::get_client;
 
 // Trees
 static USERS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("users").expect("Failed to open 'users' tree")));
+static NAME_INDEXES: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("nindex").expect("Failed to open 'nindex' tree")));
 static GROUPS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("groups").expect("Failed to open 'groups' tree")));
-static MAILS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("mails").expect("Failed to open 'mails' tree")));
 
 pub fn create_new_player(uuid: &str, name: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     let client = get_client();
     Ok(())
+}
+
+pub fn set_index(name: &str, uuid: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let tree = NAME_INDEXES.clone();
+
+    tree.insert(name, uuid)?;
+    Ok(())
+}
+
+pub fn get_uuid_by_name(name: &str) -> Result<Option<Box<str>>, Box<dyn Error + Send + Sync>> {
+    let tree = NAME_INDEXES.clone();
+
+    Ok(tree.get(name)?.map(|v| from_utf8(&v).unwrap_or("Error").into()))
+}
+
+pub fn get_user_by_name(name: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
+    let uuid = get_uuid_by_name(name)?;
+
+    if uuid.is_none() {
+        return Ok(None);
+    }
+
+    get_user_from_uuid(uuid.unwrap().as_ref())
 }
 
 pub fn get_default_group_name() -> Result<Option<IVec>, Box<dyn Error + Send + Sync>> {
@@ -134,7 +157,7 @@ fn get_user_punishments(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Puni
     Ok(get_punishments_from_json(parse(from_utf8(&serie.unwrap())?)?))
 }
 
-pub fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
+pub fn get_user_from_uuid(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
     let tree = USERS.clone();
 
     let name_opt = tree.get(format!("{uuid}:name"))?;
