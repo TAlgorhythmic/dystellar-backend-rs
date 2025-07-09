@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use json::{array, object, JsonValue};
 
@@ -15,9 +17,9 @@ pub struct Message {
 }
 
 impl Mail for Message {
-    fn from_json(value: JsonValue) -> Self {
+    fn from_json(value: &JsonValue) -> Self {
         let submission_date_opt = value["submission_date"].as_str();
-        let submission_date = if let Some(str) = submission_date_opt {decode_datetime(str.as_bytes()).unwrap_or(Utc::now())} else {Utc::now()};
+        let submission_date = if let Some(str) = submission_date_opt {DateTime::from_str(str).unwrap_or(Utc::now())} else {Utc::now()};
 
         Self {
             message: value["msg"].as_str().unwrap_or("Message not provided.").into(),

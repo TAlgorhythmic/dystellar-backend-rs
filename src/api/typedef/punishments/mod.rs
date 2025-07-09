@@ -29,7 +29,7 @@ pub fn compare(pun: &Box<dyn Punishment>, other: &Box<dyn Punishment>) -> Orderi
         time.cmp(&otime)
     }
 
-pub fn get_punishment_from_json(json: JsonValue) -> Result<Box<dyn Punishment>, Box<dyn Error + Send + Sync>> {
+pub fn get_punishment_from_json(json: &JsonValue) -> Result<Box<dyn Punishment>, Box<dyn Error + Send + Sync>> {
     let pun_type_opt = json["pun_type"].as_u8();
 
     if pun_type_opt.is_none() {
@@ -47,6 +47,18 @@ pub fn get_punishment_from_json(json: JsonValue) -> Result<Box<dyn Punishment>, 
     }
 }
 
+pub fn get_punishments_from_json(json: JsonValue) -> Vec<Box<dyn Punishment>> {
+    let mut puns: Vec<Box<dyn Punishment>> = vec![];
+
+    for member in json.members() {
+        if let Ok(pun) = get_punishment_from_json(member) {
+            puns.push(pun);
+        }
+    }
+
+    puns
+}
+
 pub trait Punishment {
     fn get_id(&self) -> &u64;
     fn allow_chat(&self) -> bool;
@@ -60,5 +72,5 @@ pub trait Punishment {
     fn get_type(&self) -> u8;
     fn is_also_ip(&self) -> &bool;
     fn to_json(&self) -> JsonValue;
-    fn from_json(json: JsonValue) -> Self where Self: Sized;
+    fn from_json(json: &JsonValue) -> Self where Self: Sized;
 }

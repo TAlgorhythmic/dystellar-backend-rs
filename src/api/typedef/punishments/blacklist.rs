@@ -70,7 +70,7 @@ impl Punishment for Blacklist {
         }
     }
 
-    fn from_json(json: JsonValue) -> Self where Self: Sized {
+    fn from_json(json: &JsonValue) -> Self where Self: Sized {
         let created_at = json["created_at"].as_str().map(|s| DateTime::from_str(s).unwrap_or(Utc::now())).unwrap_or(Utc::now());
 
         Self {

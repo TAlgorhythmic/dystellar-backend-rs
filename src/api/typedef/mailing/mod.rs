@@ -9,7 +9,7 @@ use json::JsonValue;
 use crate::api::typedef::User;
 
 pub trait Mail {
-    fn from_json(json: JsonValue) -> Self where Self: Sized;
+    fn from_json(json: &JsonValue) -> Self where Self: Sized;
     fn get_serial_id(&self) -> u8;
     fn get_sender(&self) -> &str;
     fn get_submission_date(&self) -> &DateTime<Utc>;
@@ -22,7 +22,7 @@ pub trait Claimable {
     fn claim(&mut self, user: &mut User);
 }
 
-pub fn get_mail_from_json(json: JsonValue) -> Result<Box<dyn Mail>, Box<dyn Error + Send + Sync>> {
+pub fn get_mail_from_json(json: &JsonValue) -> Result<Box<dyn Mail>, Box<dyn Error + Send + Sync>> {
     let type_opt = json["type"].as_u8();
 
     if type_opt.is_none() {
@@ -36,5 +36,17 @@ pub fn get_mail_from_json(json: JsonValue) -> Result<Box<dyn Mail>, Box<dyn Erro
         message::MESSAGE_SERIAL_ID => Ok(Box::new(message::Message::from_json(json))),
         _ => Err("This type does not exist".into())
     };
+    res
+}
+
+pub fn get_mails_from_json(json: JsonValue) -> Vec<Box<dyn Mail>> {
+    let mut res: Vec<Box<dyn Mail>> = vec![];
+
+    for member in json.members() {
+        if let Ok(mail) = get_mail_from_json(member) {
+            res.push(mail);
+        }
+    }
+
     res
 }
