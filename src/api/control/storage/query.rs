@@ -3,7 +3,7 @@ use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 use json::parse;
 use sled::{IVec, Tree};
 
-use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::{get_mail_from_json, Mail}, permissions::{Group, Permission}, User}};
+use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::{get_mail_from_json, get_mails_from_json, Mail}, permissions::{Group, Permission}, punishments::{get_punishments_from_json, Punishment}, User}};
 use super::setup::get_client;
 
 // Trees
@@ -104,19 +104,14 @@ fn get_ignores(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, Box<dyn Er
 }
 
 fn get_user_mails(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Mail>>, Box<dyn Error + Send + Sync>> {
-    let mut mails = vec![];
     let opt = tree.get(format!("{uuid}:mails"))?;
     if opt.is_none() {
-        return Ok(mails);
+        return Ok(vec![]);
     }
 
     let json = parse(from_utf8(&opt.unwrap())?)?;
 
-    for mail_json in json.members() {
-        mails.push(get_mail_from_json(mail_json.to_owned())?);
-    }
-
-    Ok(mails)
+    Ok(get_mails_from_json(json))
 }
 
 fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>, Box<dyn Error + Send + Sync>> {
@@ -128,6 +123,15 @@ fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>,
     }
 
     Ok(perms)
+}
+
+fn get_user_punishments(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Punishment>>, Box<dyn Error + Send + Sync>> {
+    let serie = tree.get(format!("{uuid}:punishments"))?;
+    if serie.is_none() {
+        return Ok(vec![]);
+    }
+
+    Ok(get_punishments_from_json(parse(from_utf8(&serie.unwrap())?)?))
 }
 
 pub fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
@@ -155,6 +159,7 @@ pub fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Err
     let friends: Vec<Box<str>> = get_friends(uuid, &tree)?;
     let ignores: Vec<Box<str>> = get_ignores(uuid, &tree)?;
     let inbox: Vec<Box<dyn Mail>> = get_user_mails(uuid, &tree)?;
+    let punishments = get_user_punishments(uuid, &tree)?;
     let perms: Vec<Permission> = get_user_permissions(uuid, &tree)?;
     let group = get_group_from_opt(tree.get(format!("{uuid}:group"))?)?;
 
@@ -168,7 +173,7 @@ pub fn get_player_from_uuid_full(uuid: &str) -> Result<Option<User>, Box<dyn Err
         lang: lang.into(),
         scoreboard, coins, friend_reqs,
         created_at, friends, ignores,
-        inbox, perms, group
+        inbox, punishments, perms, group
     };
     Ok(Some(user))
 }

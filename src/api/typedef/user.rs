@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 use chrono::{DateTime, Utc};
-use json::{object, JsonValue};
+use json::{array, object, JsonValue};
 
 use crate::api::control::storage::query::{get_default_group_name, get_group_full};
 use crate::api::typedef::mailing::Mail;
@@ -34,12 +34,15 @@ pub struct User {
 
 impl From<User> for JsonValue {
     fn from(value: User) -> Self {
+        let group_name = value.group.as_ref().map(|g| g.name.as_ref()).unwrap_or("none");
+
         let res = object! {
             uuid: value.uuid.as_ref(),
             name: value.name.as_ref(),
             suffix: value.suffix.as_ref(),
             created_at: value.created_at.to_string(),
-            punishments: ""sff
+            punishments: array![value.punishments.iter().map(|pun| pun.to_json()).collect::<Vec<JsonValue>>()],
+            group: group_name
         };
         res
     }
@@ -99,7 +102,7 @@ impl User {
         Self {
             uuid: uuid.into(), name: name.into(), email: None, chat: true, pms: PMS_ENABLED,
             suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true,
-            created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], perms: vec![], group: group_default
+            created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], punishments: vec![], perms: vec![], group: group_default
         }
     }
 

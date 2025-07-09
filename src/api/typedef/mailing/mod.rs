@@ -31,12 +31,11 @@ pub fn get_mail_from_json(json: &JsonValue) -> Result<Box<dyn Mail>, Box<dyn Err
 
     let serial = unsafe {type_opt.unwrap_unchecked()};
 
-    let res: Result<Box<dyn Mail>, Box<dyn Error + Send + Sync>> = match serial {
+    match serial {
         coins::COINS_SERIAL_ID => Ok(Box::new(coins::Coins::from_json(json))),
         message::MESSAGE_SERIAL_ID => Ok(Box::new(message::Message::from_json(json))),
         _ => Err("This type does not exist".into())
-    };
-    res
+    }
 }
 
 pub fn get_mails_from_json(json: JsonValue) -> Vec<Box<dyn Mail>> {
