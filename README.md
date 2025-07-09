@@ -71,7 +71,7 @@ cargo run
 ### Production
 
 ```bash
-cargo run --release
+cargo build --release
 ```
 
 ---
