@@ -39,15 +39,15 @@ Before running the project, create a `.env` file in the root of the repository w
 # Development/Test Configuration
 TEST_HOST=127.0.0.1
 TEST_PORT=3000
-TEST_CLIENT_ID=microsoft client id
+TEST_CLIENT_ID=<your microsoft client id here>
 TEST_REDIRECT_URI="http://localhost:3000/api/microsoft/callback"
-TEST_CLIENT_SECRET="Microsoft client secret"
+TEST_CLIENT_SECRET=<your microsoft client secret here>
 TEST_PRIVILEGED_AUTHORIZED_IP="127.0.0.1"
 
 # Production Configuration
 PROD_HOST=0.0.0.0
 PROD_PORT=443
-PROD_CLIENT_ID=microsoft client id
+PROD_CLIENT_ID=<your microsoft client id here>
 PROD_REDIRECT_URI="http://0.0.0.0:443/api/microsoft/callback"
 PROD_CLIENT_SECRET="Microsoft client secret"
 PROD_PRIVILEGED_AUTHORIZED_IP="0.0.0.0"
