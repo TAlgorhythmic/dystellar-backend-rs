@@ -13,7 +13,6 @@ use crate::api::routers::privileged;
 pub static HOST: &str = env!("HOST");
 pub static PORT: &str = env!("PORT");
 
-// Executor start
 #[derive(Clone)]
 struct Exec;
 
@@ -26,7 +25,6 @@ where
         tokio::task::spawn(fut);
     }
 }
-// Executor end
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
