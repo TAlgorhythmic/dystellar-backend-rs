@@ -2,19 +2,47 @@ use std::{collections::HashMap, sync::{Arc, LazyLock}};
 
 use chrono::{DateTime, Utc};
 use http_body_util::Full;
-use hyper::{body::{Bytes, Incoming}, Request, Response};
+use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
 use tokio::sync::Mutex;
 
-use crate::api::typedef::{BackendError, Method, Router};
+use crate::api::{control::storage::query::get_user_from_uuid, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, response_json}};
 
-pub static TOKENS: LazyLock<Arc<HashMap<&str, (&str, DateTime<Utc>)>>> = LazyLock::new(|| Arc::new(HashMap::new()));
+pub static TOKENS: LazyLock<Arc<Mutex<HashMap<Box<str>, (Box<str>, DateTime<Utc>)>>>> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 /**
 * Get user information, if a valid token is provided it returns full user information,
 * otherwise only publicly available information is returned.
 */
 async fn get(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
-    
+    let args = get_body_url_args(&req).await?;
+    let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid param is required", 400))?;
+    let user = get_user_from_uuid(uuid.as_ref()).map_err(|_| BackendError::new("Failed to get user", 500))?
+        .ok_or(BackendError::new("This user does not exist", 404))?;
+
+    let token_header = req.headers().get(AUTHORIZATION);
+
+    if token_header.is_none() {
+        return Ok(response_json(user.into()));
+    } else {
+        let token = token_header.unwrap();
+        let token_str = token.to_str().map_err(|_| BackendError::new("Failed to parse header", 500))?;
+
+        let tokens = TOKENS.clone();
+        let mut tokens_map = tokens.lock().await;
+
+        if let Some(tupl) = tokens_map.get(token_str) {
+            let (saved_uuid, expires_at) = tupl;
+
+            if saved_uuid == uuid {
+                if *expires_at < Utc::now() {
+                    tokens_map.remove(token_str);
+                    return Err(BackendError::new("This token has expired or does not exist", 401));
+                }
+                return Ok(response_json(user.to_json_complete()));
+            }
+        }
+        return Err(BackendError::new("This token has expired or does not exist", 401));
+    }
 }
 
 pub async fn register(rout: &Arc<Mutex<Router>>) {

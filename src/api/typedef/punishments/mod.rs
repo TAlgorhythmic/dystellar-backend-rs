@@ -59,7 +59,7 @@ pub fn get_punishments_from_json(json: JsonValue) -> Vec<Box<dyn Punishment>> {
     puns
 }
 
-pub trait Punishment {
+pub trait Punishment: Send + Sync {
     fn get_id(&self) -> &u64;
     fn allow_chat(&self) -> bool;
     fn allow_ranked(&self) -> bool;

@@ -1,11 +1,12 @@
 use std::{collections::HashMap, sync::{Arc, LazyLock}, time::Duration};
 
+use chrono::{Days, Utc};
 use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::create_new_player}, typedef::{BackendError, Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
+use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_index}}, routers::users::TOKENS, typedef::{BackendError, Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -80,6 +81,13 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<Full<Bytes>>,
     let tokens = MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap());
     let user_credentials = login_minecraft_existing(tokens).await?;
 
+    set_index(&user_credentials.name, &user_credentials.get_uuid());
+
+    let tokens = TOKENS.clone();
+    let mut tokens_map = tokens.lock().await;
+    let cl = user_credentials.get_uuid().clone();
+    tokens_map.insert(user_credentials.mc_token.clone(), (cl, Utc::now().checked_add_days(Days::new(1)).unwrap()));
+
     Ok(response_json(object! {
         ok: true,
         uuid: user_credentials.get_uuid().as_ref(),
@@ -143,6 +151,12 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
         println!("Failed to create user in the database: {err}");
         return Err(BackendError::new("Backend internal error.", 500));
     }
+
+    set_index(&session.name, &session.get_uuid());
+
+    let tokens = TOKENS.clone();
+    let mut tokens_map = tokens.lock().await;
+    tokens_map.insert(session.mc_token.clone(), (uuid.clone(), Utc::now().checked_add_days(Days::new(1)).unwrap()));
     
     Ok(response_json(object! {
         ok: true,

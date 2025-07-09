@@ -8,7 +8,7 @@ use json::JsonValue;
 
 use crate::api::typedef::User;
 
-pub trait Mail {
+pub trait Mail: Send + Sync {
     fn from_json(json: &JsonValue) -> Self where Self: Sized;
     fn get_serial_id(&self) -> u8;
     fn get_sender(&self) -> &str;
@@ -17,7 +17,7 @@ pub trait Mail {
     fn to_json(&self) -> JsonValue;
 }
 
-pub trait Claimable {
+pub trait Claimable: Send + Sync {
     fn is_claimed(&self) -> &bool;
     fn claim(&mut self, user: &mut User);
 }
