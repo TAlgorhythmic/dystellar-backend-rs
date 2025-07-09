@@ -40,7 +40,7 @@ Before running the project, create a `.env` file in the root of the repository w
 TEST_HOST=127.0.0.1
 TEST_PORT=3000
 TEST_CLIENT_ID=<your microsoft client id here>
-TEST_REDIRECT_URI="http://localhost:3000/api/microsoft/callback"
+TEST_REDIRECT_URI="http://localhost:3000/api/microsoft/callback" # # Make sure that your Azure app registration redirect uri matches with this
 TEST_CLIENT_SECRET=<your microsoft client secret here>
 TEST_PRIVILEGED_AUTHORIZED_IP="127.0.0.1"
 
@@ -48,8 +48,8 @@ TEST_PRIVILEGED_AUTHORIZED_IP="127.0.0.1"
 PROD_HOST=0.0.0.0
 PROD_PORT=443
 PROD_CLIENT_ID=<your microsoft client id here>
-PROD_REDIRECT_URI="http://0.0.0.0:443/api/microsoft/callback"
-PROD_CLIENT_SECRET="Microsoft client secret"
+PROD_REDIRECT_URI="http://0.0.0.0:443/api/microsoft/callback" # Make sure that your Azure app registration redirect uri matches with this
+PROD_CLIENT_SECRET=<your microsoft client secret here>
 PROD_PRIVILEGED_AUTHORIZED_IP="0.0.0.0"
 
 # Privileged Access Token
