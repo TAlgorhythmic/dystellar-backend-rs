@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     microsoft::register(&router).await;
     signal::register(&router).await;
     privileged::register(&router).await;
-    users::register(&router);
+    users::register(&router).await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;

@@ -81,7 +81,7 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<Full<Bytes>>,
     let tokens = MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap());
     let user_credentials = login_minecraft_existing(tokens).await?;
 
-    set_index(&user_credentials.name, &user_credentials.get_uuid());
+    let _ = set_index(&user_credentials.name, &user_credentials.get_uuid());
 
     let tokens = TOKENS.clone();
     let mut tokens_map = tokens.lock().await;
@@ -152,7 +152,7 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
         return Err(BackendError::new("Backend internal error.", 500));
     }
 
-    set_index(&session.name, &session.get_uuid());
+    let _ = set_index(&session.name, &session.get_uuid());
 
     let tokens = TOKENS.clone();
     let mut tokens_map = tokens.lock().await;
