@@ -1,6 +1,6 @@
 # 🛠️ Minecraft Server Auth Backend (Minecraft login with Microsoft OAuth2)
 
-This is a lightweight, low level, high-performance backend written in Rust for Dystellar Network.
+This is a lightweight, low level, high-performance and heavily multithreaded backend written in Rust for Dystellar Network.
 
 ---
 
