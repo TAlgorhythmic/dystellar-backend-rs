@@ -1,11 +1,13 @@
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
+use json::{object, JsonValue};
 
 use super::Punishment;
 
-pub static WARN_SERIE_ID: u8 = 4;
+pub const WARN_SERIE_ID: u8 = 4;
 
-#[derive(Eq)]
-pub struct Mute {
+pub struct Warn {
     id: u64,
     creation_date: DateTime<Utc>,
     expiration_date: Option<DateTime<Utc>>,
@@ -13,7 +15,7 @@ pub struct Mute {
     alsoip: bool
 }
 
-impl Punishment for Mute {
+impl Punishment for Warn {
     fn get_id(&self) -> &u64 {
         &self.id
     }
@@ -59,24 +61,33 @@ impl Punishment for Mute {
     }
 
     fn to_json(&self) -> json::JsonValue {
-        todo!()
+        object! {
+            id: self.id,
+            created_at: self.creation_date.to_string(),
+            expiration_date: match self.expiration_date {
+                Some(date) => JsonValue::String(date.to_string()),
+                _ => JsonValue::Null
+            },
+            reason: self.reason.as_ref(),
+            alsoip: self.alsoip,
+            pun_type: WARN_SERIE_ID,
+        }
     }
-}
 
-impl PartialOrd for Mute {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.compare(other))
-    }
-}
+    fn from_json(json: JsonValue) -> Self where Self: Sized {
+        let created_at = json["created_at"].as_str().map(|s| DateTime::from_str(s).unwrap_or(Utc::now())).unwrap_or(Utc::now());
+        let expiration_date_opt = json["expiration_date"].clone();
+        let expiration_date = match expiration_date_opt {
+            JsonValue::Null => None,
+            _ => expiration_date_opt.as_str().map(|s| DateTime::from_str(s).unwrap_or(Utc::now()))
+        };
 
-impl PartialEq for Mute {
-    fn eq(&self, other: &Self) -> bool {
-        *self.get_id() == *other.get_id()
-    }
-}
-
-impl Ord for Mute {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.compare(other)
+        Self {
+            id: json["id"].as_u64().unwrap_or(800),
+            creation_date: created_at,
+            expiration_date: expiration_date,
+            reason: json["reason"].as_str().unwrap_or("Unspecified").into(),
+            alsoip: json["alsoip"].as_bool().unwrap_or(true)
+        }
     }
 }

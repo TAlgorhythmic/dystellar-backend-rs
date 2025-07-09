@@ -1,10 +1,12 @@
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
+use json::{object, JsonValue};
 
 use super::Punishment;
 
-pub static BLACKLIST_SERIE_ID: u8 = 1;
+pub const BLACKLIST_SERIE_ID: u8 = 1;
 
-#[derive(Eq)]
 pub struct Blacklist {
     id: u64,
     creation_date: DateTime<Utc>,
@@ -58,24 +60,24 @@ impl Punishment for Blacklist {
     }
 
     fn to_json(&self) -> json::JsonValue {
-        todo!()
+        object! {
+            id: self.id,
+            created_at: self.creation_date.to_string(),
+            expiration_date: JsonValue::Null,
+            reason: self.reason.as_ref(),
+            alsoip: self.alsoip,
+            pun_type: BLACKLIST_SERIE_ID,
+        }
     }
-}
 
-impl PartialOrd for Blacklist {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.compare(other))
-    }
-}
+    fn from_json(json: JsonValue) -> Self where Self: Sized {
+        let created_at = json["created_at"].as_str().map(|s| DateTime::from_str(s).unwrap_or(Utc::now())).unwrap_or(Utc::now());
 
-impl Ord for Blacklist {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.compare(other)
-    }
-}
-
-impl PartialEq for Blacklist {
-    fn eq(&self, other: &Self) -> bool {
-        *self.get_id() == *other.get_id()
+        Self {
+            id: json["id"].as_u64().unwrap_or(800),
+            creation_date: created_at,
+            reason: json["reason"].as_str().unwrap_or("Unspecified").into(),
+            alsoip: json["alsoip"].as_bool().unwrap_or(true)
+        }
     }
 }
