@@ -5,6 +5,7 @@ mod microsoft;
 pub mod mailing;
 pub mod punishments;
 pub mod permissions;
+pub mod config;
 use std::error::Error;
 
 pub use user::User;

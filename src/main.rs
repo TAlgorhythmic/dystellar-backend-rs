@@ -26,7 +26,7 @@ where
     }
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 6)]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
     init_db().await.expect("Failed to initialize database");
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (stream, _) = binding.accept().await?;
 
         let io = TokioIo::new(stream);
-        
+
         let cl = router.clone();
         tokio::task::spawn(async move {
             let service = service_fn(move |req| srv(req, cl.clone()));
