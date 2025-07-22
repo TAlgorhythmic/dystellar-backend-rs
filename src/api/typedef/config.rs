@@ -1,8 +1,8 @@
-use std::{default, error::Error, fs};
+use std::{error::Error, fs};
 
 use json::{object, JsonValue};
 
-struct Config {
+pub struct Config {
     launcher_url: Box<str>,
     launcher_version: Box<str>,
 }
@@ -15,6 +15,7 @@ impl Config {
     pub fn open(path: &str) -> Result<Config, Box<dyn Error + Send + Sync>> {
         let conf_opt = fs::read_to_string(path);
         if conf_opt.is_err() {
+            println!("{path} doesn't seem to exist, creating default config...");
             return Config::default().save(path)
         }
 
