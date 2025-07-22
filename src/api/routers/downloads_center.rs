@@ -9,15 +9,15 @@ use crate::api::{typedef::{config::Config, BackendError, Router}, utils::respons
 
 static CONFIG: LazyLock<Arc<std::sync::Mutex<Config>>> = LazyLock::new(|| Config::open("downloads.json").expect("Failed to open downloads.json"));
 
-async fn status(_: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
+async fn launcher(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
     Ok(response_json(object! { ok: true }))
 }
 
-pub async fn launcher(rout: &Arc<Mutex<Router>>) {
+pub async fn register(rout: &Arc<Mutex<Router>>) {
     let mut router = rout.lock().await;
 
     router.endpoint(crate::api::typedef::Method::Get,
         "/api/downloads/launcher",
-        Box::new(|req| {Box::pin(status(req))})
+        Box::new(|req| {Box::pin(launcher(req))})
     ).expect("Failed to register status endpoint");
 }
