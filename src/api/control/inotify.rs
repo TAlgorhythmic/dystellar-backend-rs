@@ -1,6 +1,6 @@
-use std::{error::Error, fs::{read, File}, io::Read, os::{fd::{FromRawFd, IntoRawFd, OwnedFd, RawFd}, raw::c_int, unix::thread::JoinHandleExt}, sync::{LazyLock, Mutex}, thread::spawn};
+use std::{error::Error, ffi::CString, fs::{read, File}, io::Read, os::{fd::{FromRawFd, IntoRawFd, OwnedFd, RawFd}, raw::c_int, unix::thread::JoinHandleExt}, sync::{LazyLock, Mutex}, thread::spawn};
 
-use inotify_sys::{inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE, IN_CREATE, IN_MOVED_TO};
+use inotify_sys::{inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE, IN_CREATE, IN_MODIFY, IN_MOVED_TO};
 
 static WATCHERS: Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>> = Mutex::new(vec![]);
 static INOTIFY_FD: LazyLock<c_int> = LazyLock::new(|| {
@@ -48,9 +48,9 @@ where
     }
 
     unsafe {
-        let wd = inotify_add_watch(**fd, path.as_bytes().as_ptr() as *const i8, IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO);
+        let wd = inotify_add_watch(**fd, CString::new(path)?.as_ptr(), IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO | IN_MODIFY);
         
-        if wd < 1 {
+        if wd < 0 {
             return Err("[inotify] Failed to add watcher".into());
         }
 

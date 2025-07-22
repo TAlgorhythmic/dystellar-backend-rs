@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 use http_body_util::{BodyExt, Full};
-use hyper::{body::{Bytes, Incoming}, header::{self, CONTENT_TYPE}, Request, Response};
+use hyper::{body::{Bytes, Incoming}, header::{CONTENT_TYPE, LOCATION}, Request, Response};
 use json::{stringify, JsonValue};
+
+use crate::api::control::http::empty;
 
 use super::typedef::BackendError;
 
@@ -69,4 +71,12 @@ pub async fn get_body_json(http: HttpTransaction) -> Result<JsonValue, BackendEr
     }
 
     Ok(json.unwrap())
+}
+
+pub fn temporary_redirection(url: &str) -> Response<Full<Bytes>> {
+    Response::builder()
+        .status(302)
+        .header(LOCATION, url)
+        .body(empty())
+        .unwrap()
 }

@@ -1,6 +1,6 @@
 mod api;
 
-use crate::api::{control::storage::setup::init_db, routers::{state, users}};
+use crate::api::{control::storage::setup::init_db, routers::{state, users}, typedef::config::Config};
 use api::{routers::{microsoft, signal}, typedef::Router};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, sync::Mutex};
@@ -31,6 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
     init_db().await.expect("Failed to initialize database");
 
+    let config = Config::open("state.json")?;
     let router = Arc::new(Mutex::new(Router::new()));
 
     // Register endpoints
@@ -38,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     signal::register(&router).await;
     privileged::register(&router).await;
     users::register(&router).await;
-    state::register(&router).await;
+    state::register(&router, config).await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;

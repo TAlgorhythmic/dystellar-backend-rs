@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 
 use crate::Exec;
 
-fn empty() -> Full<Bytes> {
+pub fn empty() -> Full<Bytes> {
     Full::new(Bytes::new())
 }
 
