@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 
 use crate::api::{typedef::{config::Config, BackendError, Router}, utils::response_json};
 
-static CONFIG: LazyLock<Mutex<Config>> = LazyLock::new(|| Mutex::new(Config::open("downloads.json").expect("Failed to open downloads.json")));
+static CONFIG: LazyLock<Arc<std::sync::Mutex<Config>>> = LazyLock::new(|| Config::open("downloads.json").expect("Failed to open downloads.json"));
 
 async fn status(_: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
     Ok(response_json(object! { ok: true }))
