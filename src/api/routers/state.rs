@@ -17,7 +17,7 @@ pub async fn register(rout: &Arc<Mutex<Router>>) {
     let mut router = rout.lock().await;
 
     router.endpoint(crate::api::typedef::Method::Get,
-        "/api/downloads/launcher",
+        "/launcher",
         Box::new(|req| {Box::pin(launcher(req))})
     ).expect("Failed to register status endpoint");
 }

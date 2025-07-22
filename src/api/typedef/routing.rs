@@ -64,6 +64,10 @@ impl Node {
         Self { name: val.into(), subnodes: vec![], endpoints: vec![] }
     }
 
+    pub fn empty() -> Self {
+        Node::new("")
+    }
+
     pub fn subnodes_search_mut(&mut self, val: &str) -> Option<&mut Node> {
         self.subnodes.iter_mut().find(|n| *n.name == *val)
     }
@@ -103,19 +107,19 @@ fn register_endpoint(i: usize, node: &mut Node, split: Vec<&str>, method: Method
 }
 
 impl Router {
-    pub fn new(base: &str) -> Self {
-        Self { base: Node::new(base) }
+    pub fn new() -> Self {
+        Self { base: Node::empty() }
     }
 
     pub fn get_endpoint(&self, path: &str, method: Method) -> Option<&Endpoint> {
         let split = path.split('/').collect::<Vec<&str>>();
 
-        if split.len() < 2 || *split[1] != *self.base.name {
+        if split.len() < 1 {
             return None;
         }
 
         let mut node = &self.base;
-        for i in 2..split.len() {
+        for i in 1..split.len() {
             if i == split.len() - 1 {
                 if let Some(endpoint) = node.endpoints_search(split[i], &method) {
                     return Some(endpoint);
@@ -131,15 +135,16 @@ impl Router {
     }
 
     pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if !path.starts_with('/') {
+            return Err("Invalid path name".into());
+        }
+
         let split = path.split('/').collect::<Vec<&str>>();
 
-        if split.len() < 2 {
-            return Err("An endpoint must contain at least the basename.".into());
+        if split.len() < 1 {
+            return Err("Not an endpoint".into());
         }
 
-        if *split[1] != *self.base.name {
-            return Err("Invalid base name in url.".into());
-        }
-        register_endpoint(2, &mut self.base, split, method, func)
+        register_endpoint(1, &mut self.base, split, method, func)
     }
 }
