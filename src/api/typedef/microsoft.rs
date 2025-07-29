@@ -21,7 +21,6 @@ pub struct UserCredentials {
 pub struct MicrosoftTokens {
     pub access_token: Box<str>,
     pub refresh_token: Box<str>,
-    pub expires: i64
 }
 
 pub struct XboxLiveTokensData {
@@ -78,8 +77,8 @@ impl SigninState {
 }
 
 impl MicrosoftTokens {
-    pub fn new(access_token: Box<str>, refresh_token: Box<str>, expiration: i64) -> Self {
-        Self { access_token, refresh_token, expires: expiration }
+    pub fn new(access_token: Box<str>, refresh_token: Box<str>) -> Self {
+        Self { access_token, refresh_token }
     }
 
     pub fn get_token(&self) -> &Box<str> {
@@ -88,18 +87,12 @@ impl MicrosoftTokens {
     pub fn get_refresh_token(&self) -> &Box<str> {
         &self.refresh_token
     }
-    pub fn get_expiration(&self) -> &i64 {
-        &self.expires
-    }
 
     pub fn set_token(&mut self, token: Box<str>) {
         self.access_token = token;
     }
     pub fn set_refresh_token(&mut self, refresh_token: Box<str>) {
         self.refresh_token = refresh_token;
-    }
-    pub fn set_expiration(&mut self, expiration: i64) {
-        self.expires = expiration;
     }
 }
 

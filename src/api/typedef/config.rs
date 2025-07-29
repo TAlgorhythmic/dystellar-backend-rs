@@ -50,7 +50,7 @@ impl Config {
     }
 
     pub fn save(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
-        fs::write(path, json::stringify(self.to_json()))?;
+        fs::write(path, json::stringify_pretty(self.to_json(), 4))?;
         Ok(())
     }
 

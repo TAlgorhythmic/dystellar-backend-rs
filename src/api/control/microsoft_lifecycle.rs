@@ -1,5 +1,3 @@
-use std::{error::Error, str::FromStr};
-
 use hyper::header::{HeaderValue, AUTHORIZATION};
 use json::{array, object};
 
@@ -35,7 +33,7 @@ pub async fn get_microsoft_tokens(code: &str) -> Result<MicrosoftTokens, Backend
         return Err(BackendError::new("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired", 400));
     }
 
-    Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap()))
+    Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into()))
 }
 
 /**
@@ -93,7 +91,7 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<MicrosoftTokens
         return Err(BackendError::new("Failed to fetch microsoft tokens, either an internal error occurred or the code token expired", 400));
     }
 
-    Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap()))
+    Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into()))
 }
 
 pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, BackendError> {
@@ -197,7 +195,6 @@ pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<Use
             let refresh = refresh_access_token(tokens.get_refresh_token()).await?;
             tokens.set_token(refresh.access_token);
             tokens.set_refresh_token(refresh.refresh_token);
-            tokens.set_expiration(refresh.expires);
 
             get_xbox_live_data(tokens.get_token()).await?
         }

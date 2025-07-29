@@ -73,12 +73,11 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<Full<Bytes>>,
 
     let opt_access_token = body["access_token"].as_str();
     let opt_refresh_token = body["refresh_token"].as_str();
-    let opt_expiration = body["expires_in"].as_i64();
-    if opt_access_token.is_none() || opt_refresh_token.is_none() || opt_expiration.is_none() {
+    if opt_access_token.is_none() || opt_refresh_token.is_none() {
         return Err(BackendError::new("Malformed request body", 400));
     }
 
-    let tokens = MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into(), opt_expiration.unwrap());
+    let tokens = MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into());
     let user_credentials = login_minecraft_existing(tokens).await?;
 
     let _ = set_index(&user_credentials.name, &user_credentials.get_uuid());
