@@ -146,10 +146,15 @@ pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<Minecraf
 */
 pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError> {
     let tokens = get_microsoft_tokens(code).await?;
+    println!("microsoft tokens correct");
     let xbox_data = get_xbox_live_data(tokens.get_token()).await?;
+    println!("xbox live data correct");
     let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;
+    println!("xbox xsts correct");
     let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_token.as_ref()).await?;
+    println!("minecraft token correct");
     let name = get_minecraft_username(minecraft_data.get_token()).await?;
+    println!("minecraft username correct");
 
     Ok(UserCredentials::new(
         minecraft_data.uuid,

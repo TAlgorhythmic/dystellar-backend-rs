@@ -128,7 +128,7 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
         return Err(BackendError::new("Invalid params", 400));
     }
 
-    let guard = pend.lock().await;
+    let mut guard = pend.lock().await;
     let uuid = arg.unwrap();
     let state = guard.get(uuid);
 
@@ -144,7 +144,8 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
 
     let code = codeopt.as_deref().unwrap();
     let session = login_minecraft(code).await?;
-
+    guard.remove(uuid);
+    
     // Try to create new player if it doesn't exist.
     if let Err(err) = create_new_player(session.get_uuid().as_ref(), session.name.as_ref()) {
         println!("Failed to create user in the database: {err}");
@@ -182,9 +183,6 @@ async fn login(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendE
 async fn callback(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
     let args = get_body_url_args(&req).await?;
 
-    for (key, value) in &args {
-        println!("{} = {}", key, value);
-    }
     let arg0 = args.get("code");
     let arg1 = args.get("state");
 
