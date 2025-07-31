@@ -14,7 +14,7 @@ static REDIRECT_URI: &str = env!("REDIRECT_URI");
 */
 pub async fn get_microsoft_tokens(code: &str) -> Result<MicrosoftTokens, BackendError> {
     let auth_res = post_urlencoded(
-        "https://login.live.com/oauth20_token.srf",
+        "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
         format!(
             "client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}&code={code}&grant_type=authorization_code&redirect_uri={REDIRECT_URI}"
         )
@@ -44,7 +44,7 @@ pub async fn get_xbox_live_data(access_token: &str) -> Result<XboxLiveTokensData
         Properties: object! {
             AuthMethod: "RPS",
             SiteName: "user.auth.xboxlive.com",
-            RpsTicket: access_token
+            RpsTicket: format!("d={access_token}")
         },
         RelyingParty: "http://auth.xboxlive.com",
         TokenType: "JWT"
@@ -146,7 +146,6 @@ pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<Minecraf
 */
 pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError> {
     let tokens = get_microsoft_tokens(code).await?;
-    println!("microsoft tokens correct");
     let xbox_data = get_xbox_live_data(tokens.get_token()).await?;
     println!("xbox live data correct");
     let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;

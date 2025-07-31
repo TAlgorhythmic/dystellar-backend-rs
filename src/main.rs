@@ -1,7 +1,7 @@
 mod api;
 
-use crate::api::{control::storage::setup::init_db, routers::{state, users}, typedef::config::Config};
-use api::{routers::{microsoft, signal}, typedef::Router};
+use crate::api::{control::storage::setup::init_db, typedef::fs_json::{redirects::Redirects, state::State, Config}};
+use api::{routers::{microsoft, signal, state, users, redirections}, typedef::Router};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, sync::Mutex};
 use hyper_util::rt::TokioIo;
@@ -31,7 +31,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
     init_db().await.expect("Failed to initialize database");
 
-    let config = Config::open("state.json")?;
+    let config = State::open("state.json")?;
+    let redirects = Redirects::open("redirections.json")?;
+
     let router = Arc::new(Mutex::new(Router::new()));
 
     // Register endpoints
@@ -40,6 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     privileged::register(&router).await;
     users::register(&router).await;
     state::register(&router, config).await;
+    redirections::register(&router, redirects).await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;
@@ -47,13 +50,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Listening to {HOST}:{PORT}");
 
     loop {
-        let (stream, _) = binding.accept().await?;
+        let (stream, addr) = binding.accept().await?;
 
         let io = TokioIo::new(stream);
 
         let cl = router.clone();
         tokio::task::spawn(async move {
-            let service = service_fn(move |req| srv(req, cl.clone()));
+            let service = service_fn(move |req| srv(req, addr, cl.clone()));
             let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection(io, service).await;
 
             if res.is_err() {

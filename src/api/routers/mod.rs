@@ -3,6 +3,7 @@ pub mod signal;
 pub mod privileged;
 pub mod users;
 pub mod state;
+pub mod redirections;
 
 use std::sync::Arc;
 use hyper::{Response, Request, body::{Bytes, Incoming}};

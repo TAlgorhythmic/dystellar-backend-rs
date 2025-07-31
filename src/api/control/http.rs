@@ -1,12 +1,11 @@
 use std::error::Error;
 
 use http_body_util::Full;
-use hyper::{body::{Bytes, Incoming}, client::conn::http2::handshake, header::{HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE, HOST}, Request, Response, Uri};
+use hyper::{body::{Bytes, Incoming}, client::conn::http1::handshake, header::{HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE, HOST}, Request, Response, Uri};
 use hyper_util::rt::TokioIo;
 use json::{stringify, JsonValue};
 use tokio::net::TcpStream;
-
-use crate::Exec;
+use tokio_native_tls::TlsConnector;
 
 pub fn empty() -> Full<Bytes> {
     Full::new(Bytes::new())
@@ -19,14 +18,49 @@ async fn request(uri: Uri, req: Request<Full<Bytes>>) -> Result<Response<Incomin
     }
 
     let host = hostopt.unwrap();
-    let port = uri.port_u16().unwrap_or(443);
+    let port = uri.port_u16().unwrap_or(80);
 
     let addr = format!("{host}:{port}");
     let stream = TcpStream::connect(addr).await?;
 
     let io = TokioIo::new(stream);
 
-    let (mut sender, _) = handshake(Exec, io).await?;
+    println!("hole");
+    let (mut sender, connection) = handshake(io).await?;
+    
+    tokio::task::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("Connection error: {e}");
+        }
+    });
+
+    let res = sender.send_request(req).await?;
+    Ok(res)
+}
+
+async fn request_tls(uri: Uri, req: Request<Full<Bytes>>) -> Result<Response<Incoming>, Box<dyn Error + Send + Sync>> {
+    let hostopt = uri.host();
+    if hostopt.is_none() {
+        return Err("Invalid url (backend side error)".into());
+    }
+
+    let host = hostopt.unwrap();
+    let port = uri.port_u16().unwrap_or(443);
+
+    let addr = format!("{host}:{port}");
+    let stream = TcpStream::connect(addr).await?;
+
+    let tls_connector = TlsConnector::from(native_tls::TlsConnector::new()?);
+    let tls_stream = tls_connector.connect(host, stream).await?;
+    let io = TokioIo::new(tls_stream);
+
+    let (mut sender, connection) = handshake(io).await?;
+
+    tokio::task::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("Connection error: {e}");
+        }
+    });
 
     let res = sender.send_request(req).await?;
     Ok(res)
@@ -43,7 +77,7 @@ pub async fn post_urlencoded(url: &str, body_params: String) -> Result<Response<
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(Full::new(Bytes::from(body_params)))?;
 
-    request(uri, req).await
+    request_tls(uri, req).await
 }
 
 pub async fn post_json(url: &str, body: JsonValue) -> Result<Response<Incoming>, Box<dyn Error + Send + Sync>> {
@@ -58,7 +92,7 @@ pub async fn post_json(url: &str, body: JsonValue) -> Result<Response<Incoming>,
         .header(ACCEPT, "application/json")
         .body(Full::new(Bytes::from(stringify(body))))?;
 
-    request(uri, req).await
+    request_tls(uri, req).await
 }
 
 /**
@@ -85,5 +119,5 @@ pub async fn get_json(url: &str, add_headers: Option<&[(HeaderName, HeaderValue)
 
     let req = req_build.body(empty())?;
 
-    request(uri, req).await
+    request_tls(uri, req).await
 }

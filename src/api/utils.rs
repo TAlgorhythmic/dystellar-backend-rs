@@ -38,9 +38,14 @@ pub async fn get_body_str(http: HttpTransaction) -> Result<String, BackendError>
     let body = body_res.unwrap();
 
     let vec = body.to_bytes().to_vec();
-    let str = String::from_utf8(vec);
+    let str_opt = String::from_utf8(vec);
 
-    Ok(str.unwrap())
+    if let Err(err) = &str_opt {
+        return Err(BackendError::new(err.to_string().as_str(), 500));
+    }
+
+    let str = str_opt.unwrap();
+    Ok(str)
 }
 
 pub async fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, BackendError> {
@@ -65,9 +70,10 @@ pub async fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<st
 }
 
 pub async fn get_body_json(http: HttpTransaction) -> Result<JsonValue, BackendError> {
-    let json = json::parse(get_body_str(http).await?.as_str());
-    if json.is_err()  {
-        return Err(BackendError::new("Malformed body, couldn't decode json", 400));
+    let body_str = get_body_str(http).await?;
+    let json = json::parse(body_str.as_str());
+    if let Err(err) = &json  {
+        return Err(BackendError::new(format!("Malformed body, couldn't decode json: {}", err.to_string()).as_str(), 400));
     }
 
     Ok(json.unwrap())
