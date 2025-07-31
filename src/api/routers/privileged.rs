@@ -5,7 +5,7 @@ use hyper::{body::{Bytes, Incoming}, header::{AUTHORIZATION, CONTENT_TYPE}, Requ
 use json::{array, object, stringify};
 use tokio::sync::Mutex;
 
-use crate::api::{control::storage::query::get_user_from_uuid, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
+use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -60,8 +60,8 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Ba
         .unwrap())
 }
 
-pub async fn register(rout: &Arc<Mutex<Router>>) {
-    let mut router = rout.lock().await;
+pub async fn register() {
+    let mut router = ROUTER.lock().await;
 
     router.endpoint(Method::Get,
         "/api/privileged/player_data",

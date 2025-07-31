@@ -6,7 +6,7 @@ use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_index}}, routers::users::TOKENS, typedef::{BackendError, Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
+use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_index}}, routers::{users::TOKENS, ROUTER}, typedef::{BackendError, Method, MicrosoftTokens, Router, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -207,8 +207,8 @@ async fn callback(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Backe
     Ok(response_json(object! { ok: true, msg: "Login successful! You can now close this tab." }))
 }
 
-pub async fn register(rout: &Arc<Mutex<Router>>) {
-    let mut router = rout.lock().await;
+pub async fn register() {
+    let mut router = ROUTER.lock().await;
 
     router.endpoint(
         Method::Get, 

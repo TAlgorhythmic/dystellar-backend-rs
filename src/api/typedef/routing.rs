@@ -68,6 +68,10 @@ impl Node {
         Node::new("")
     }
 
+    pub fn remove_endpoint(&mut self, val: &str, method: &Method) {
+        self.endpoints.retain(|endpoint| &*endpoint.name != val || endpoint.method != *method);
+    }
+
     pub fn subnodes_search_mut(&mut self, val: &str) -> Option<&mut Node> {
         self.subnodes.iter_mut().find(|n| *n.name == *val)
     }
@@ -132,6 +136,27 @@ impl Router {
             return None;
         }
         None
+    }
+
+    pub fn remove_endpoint(&mut self, method: Method, path: &str) {
+        let split = path.split('/').collect::<Vec<&str>>();
+
+        if split.len() < 1 {
+            return;
+        }
+
+        let mut node = &mut self.base;
+        for i in 1..split.len() {
+            if i == split.len() - 1 {
+                node.remove_endpoint(split[i], &method);
+                return;
+            }
+            if let Some(subnode) = node.subnodes_search_mut(split[i]) {
+                node = subnode;
+                continue;
+            }
+            return;
+        }
     }
 
     pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {

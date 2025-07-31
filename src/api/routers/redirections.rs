@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
+use crate::api::{routers::ROUTER, typedef::{fs_json::redirects::Redirects}, utils::temporary_redirection};
 
-use crate::api::{typedef::{fs_json::redirects::Redirects, BackendError, Router}, utils::temporary_redirection};
-
-pub async fn register(rout: &Arc<Mutex<Router>>, redirections: Arc<std::sync::Mutex<Redirects>>) {
-    let mut router = rout.lock().await;
+pub async fn register(redirections: Arc<std::sync::Mutex<Redirects>>) {
+    let mut router = ROUTER.lock().await;
     let redirects = redirections.lock().unwrap();
     
     for (key, value) in &redirects.mappings {

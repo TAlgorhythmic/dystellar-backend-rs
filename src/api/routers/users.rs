@@ -5,13 +5,14 @@ use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
 use tokio::sync::Mutex;
 
-use crate::api::{control::storage::query::get_user_from_uuid, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, response_json}};
+use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, response_json}};
 
 pub static TOKENS: LazyLock<Arc<Mutex<HashMap<Box<str>, (Box<str>, DateTime<Utc>)>>>> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 /**
 * Get user information, if a valid token is provided it returns full user information,
 * otherwise only publicly available information is returned.
+* Returns an error if an invalid token is provided.
 */
 async fn get(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
     let args = get_body_url_args(&req).await?;
@@ -45,8 +46,8 @@ async fn get(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendErr
     }
 }
 
-pub async fn register(rout: &Arc<Mutex<Router>>) {
-    let mut router = rout.lock().await;
+pub async fn register() {
+    let mut router = ROUTER.lock().await;
 
     router.endpoint(Method::Get,
         "/api/users",

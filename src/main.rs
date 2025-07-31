@@ -32,17 +32,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     init_db().await.expect("Failed to initialize database");
 
     let config = State::open("state.json")?;
-    let redirects = Redirects::open("redirections.json")?;
-
-    let router = Arc::new(Mutex::new(Router::new()));
+    let _ = Redirects::open("redirections.json")?;
 
     // Register endpoints
-    microsoft::register(&router).await;
-    signal::register(&router).await;
-    privileged::register(&router).await;
-    users::register(&router).await;
-    state::register(&router, config).await;
-    redirections::register(&router, redirects).await;
+    microsoft::register().await;
+    signal::register().await;
+    privileged::register().await;
+    users::register().await;
+    state::register(config).await;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;
@@ -54,9 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let io = TokioIo::new(stream);
 
-        let cl = router.clone();
         tokio::task::spawn(async move {
-            let service = service_fn(move |req| srv(req, addr, cl.clone()));
+            let service = service_fn(move |req| srv(req, addr));
             let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection(io, service).await;
 
             if res.is_err() {
