@@ -1,9 +1,9 @@
 mod api;
 
 use crate::api::{control::storage::setup::init_db, typedef::fs_json::{redirects::Redirects, state::State, Config}};
-use api::{routers::{microsoft, signal, state, users, redirections}, typedef::Router};
-use std::{net::SocketAddr, sync::Arc};
-use tokio::{net::TcpListener, sync::Mutex};
+use api::routers::{microsoft, signal, state, users};
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
 use api::service::srv;
 use hyper::service::service_fn;

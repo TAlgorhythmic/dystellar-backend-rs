@@ -1,66 +1,72 @@
-use std::{error::Error, ffi::CString, fs::{read, File}, io::Read, os::{fd::{FromRawFd, IntoRawFd, OwnedFd, RawFd}, raw::c_int, unix::thread::JoinHandleExt}, sync::{LazyLock, Mutex}, thread::spawn};
+use std::{collections::HashMap, error::Error, ffi::{CStr, CString}, fs::File, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::{LazyLock, Mutex}, thread};
 
-use inotify_sys::{inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE, IN_CREATE, IN_MODIFY, IN_MOVED_TO};
+use inotify_sys::{close, inotify_add_watch, inotify_event, inotify_init, inotify_rm_watch, IN_CLOSE_WRITE, IN_CREATE, IN_IGNORED, IN_MODIFY, IN_MOVED_TO};
+use tokio::runtime::Builder;
 
-static WATCHERS: Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>> = Mutex::new(vec![]);
+static WATCHERS: LazyLock<Mutex<HashMap<Box<str>, Box<dyn Fn() + Send + Sync + 'static>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 static INOTIFY_FD: LazyLock<c_int> = LazyLock::new(|| {
     let fd = unsafe {inotify_init()};
     if fd == -1 {
         return fd;
     }
 
-    let owned_fd = unsafe {OwnedFd::from_raw_fd(fd)};
-    
-    spawn(move || {
-        let mut file = File::from(owned_fd);
-        let mut buff = [0u8; 4096];
 
-        loop {
-            if let Ok(read) = file.read(&mut buff) {
-                let mut offset = 0;
+    let res = unsafe { inotify_add_watch(fd, CString::new(".").unwrap().as_ptr(), IN_CLOSE_WRITE) };
+    if res < 0 {
+        eprintln!("[inotify] Failed to add watcher");
+        unsafe { close(fd) };
+        return -1;
+    }
 
-                while offset < read {
-                    let event = unsafe {buff.as_ptr().add(offset)} as *const inotify_event;
-                    let wd: i32 = unsafe {(*event).wd};
-                    let event_size = std::mem::size_of::<inotify_event>() + unsafe {(*event).len as usize};
-                    
-                    offset += event_size;
-                    let watchers = WATCHERS.lock().unwrap();
-                    watchers[wd as usize]();
-                }
-            } else {
-                println!("[inotify] Failed to read from inotify");
-            }
-
-        }
-    });
-
+    listen_events(fd);
     fd
 });
+
+fn listen_events(fd: i32) {
+    thread::spawn(move || {
+        let rt = Builder::new_current_thread().build().unwrap();
+
+        rt.block_on(async move {
+            let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
+            let mut file = File::from(owned_fd);
+            let mut buff = [0u8; 4096];
+
+            loop {
+                if let Ok(read) = file.read(&mut buff) {
+                    let mut offset = 0;
+
+                    while offset < read {
+                        let event = unsafe {buff.as_ptr().add(offset)} as *const inotify_event;
+                        let event_size = std::mem::size_of::<inotify_event>() + unsafe {(*event).len as usize};
+
+                        let str = unsafe { buff.as_ptr().add(std::mem::size_of::<inotify_event>() + offset) as *const c_char };
+                        offset += event_size;
+
+                        let watchers = WATCHERS.lock().unwrap();
+                        let string = unsafe { CStr::from_ptr(str) };
+                        
+                        if let Some(watcher) = watchers.get(string.to_str().unwrap().into()) {
+                            watcher();
+                        }
+                    }
+                } else {
+                    println!("[inotify] Failed to read from inotify");
+                }
+            }
+        });
+    });
+}
 
 pub fn register_file_watcher<F>(path: &str, f: F) -> Result<(), Box<dyn Error + Send + Sync>>
 where
     F: Fn() + Send + Sync + 'static
 {
-    let fd = &INOTIFY_FD;
-    if **fd == -1 {
+    if *INOTIFY_FD == -1 {
         return Err("[inotify] Failed to initialize inotify, file watcher disabled".into());
     }
 
-    unsafe {
-        let wd = inotify_add_watch(**fd, CString::new(path)?.as_ptr(), IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_TO | IN_MODIFY);
-        
-        if wd < 0 {
-            return Err("[inotify] Failed to add watcher".into());
-        }
-
-        let mut watchers = WATCHERS.lock().unwrap();
-        if watchers.len() < (wd + 1) as usize {
-            watchers.resize_with((wd + 10) as usize, || Box::new(|| {}));
-        }
-
-        watchers[wd as usize] = Box::new(f);
-    }
+    let mut watchers = WATCHERS.lock().unwrap();
+    watchers.insert(path.into(), Box::new(f));
 
     Ok(())
 }
