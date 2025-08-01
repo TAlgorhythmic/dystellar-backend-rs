@@ -9,7 +9,17 @@ use crate::api::control::inotify::register_file_watcher;
 
 pub trait Config: Sized + Send + Sync + 'static {
     fn open(path: &str) -> Result<Arc<Mutex<Self>>, Box<dyn Error + Send + Sync>> {
-        let conf = Self::default();
+        let mut conf = Self::default();
+        let mut load_res = conf.load(path);
+
+        if load_res.is_err() {
+            println!("{path} doesn't seem to exist, creating default config...");
+            if let Err(err) = conf.save(path) {
+                eprintln!("Failed to save file: {}", err.to_string());
+            } else {
+                load_res = conf.load(path);
+            }
+        }
 
         let res = Arc::new(Mutex::new(conf));
         let path_cl: Box<str> = path.into();
@@ -19,16 +29,8 @@ pub trait Config: Sized + Send + Sync + 'static {
         register_file_watcher(path, move || {
             println!("[{path_cl}] Updating cache...");
             let mut config = res_cl.lock().unwrap();
-            let mut s = config.load(&path_cl);
+            let s = config.load(&path_cl);
 
-            if s.is_err() {
-                println!("{path_cl} doesn't seem to exist, creating default config...");
-                if let Err(err) = config.save(&path_cl) {
-                    eprintln!("Failed to save file: {}", err.to_string());
-                } else {
-                    s = config.load(&path_cl);
-                }
-            }
             if s.is_err() {
                 println!("Failed to update config from {path_cl}");
             }

@@ -1,7 +1,6 @@
-use std::{collections::HashMap, error::Error, ffi::{CStr, CString}, fs::File, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::{LazyLock, Mutex}, thread};
+use std::{collections::HashMap, error::Error, ffi::{CStr, CString}, fs::File, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::{LazyLock, Mutex}};
 
-use inotify_sys::{close, inotify_add_watch, inotify_event, inotify_init, inotify_rm_watch, IN_CLOSE_WRITE, IN_CREATE, IN_IGNORED, IN_MODIFY, IN_MOVED_TO};
-use tokio::runtime::Builder;
+use inotify_sys::{close, inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE};
 
 static WATCHERS: LazyLock<Mutex<HashMap<Box<str>, Box<dyn Fn() + Send + Sync + 'static>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 static INOTIFY_FD: LazyLock<c_int> = LazyLock::new(|| {
@@ -23,37 +22,33 @@ static INOTIFY_FD: LazyLock<c_int> = LazyLock::new(|| {
 });
 
 fn listen_events(fd: i32) {
-    thread::spawn(move || {
-        let rt = Builder::new_current_thread().build().unwrap();
+    tokio::task::spawn_blocking(move || {
+        let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
+        let mut file = File::from(owned_fd);
+        let mut buff = [0u8; 4096];
 
-        rt.block_on(async move {
-            let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
-            let mut file = File::from(owned_fd);
-            let mut buff = [0u8; 4096];
+        loop {
+            if let Ok(read) = file.read(&mut buff) {
+                let mut offset = 0;
 
-            loop {
-                if let Ok(read) = file.read(&mut buff) {
-                    let mut offset = 0;
+                while offset < read {
+                    let event = unsafe {buff.as_ptr().add(offset)} as *const inotify_event;
+                    let event_size = std::mem::size_of::<inotify_event>() + unsafe {(*event).len as usize};
 
-                    while offset < read {
-                        let event = unsafe {buff.as_ptr().add(offset)} as *const inotify_event;
-                        let event_size = std::mem::size_of::<inotify_event>() + unsafe {(*event).len as usize};
+                    let str = unsafe { buff.as_ptr().add(std::mem::size_of::<inotify_event>() + offset) as *const c_char };
+                    offset += event_size;
 
-                        let str = unsafe { buff.as_ptr().add(std::mem::size_of::<inotify_event>() + offset) as *const c_char };
-                        offset += event_size;
+                    let watchers = WATCHERS.lock().unwrap();
+                    let string = unsafe { CStr::from_ptr(str) };
 
-                        let watchers = WATCHERS.lock().unwrap();
-                        let string = unsafe { CStr::from_ptr(str) };
-                        
-                        if let Some(watcher) = watchers.get(string.to_str().unwrap().into()) {
-                            watcher();
-                        }
+                    if let Some(watcher) = watchers.get(string.to_str().unwrap().into()) {
+                        watcher();
                     }
-                } else {
-                    println!("[inotify] Failed to read from inotify");
                 }
+            } else {
+                println!("[inotify] Failed to read from inotify");
             }
-        });
+        }
     });
 }
 

@@ -30,7 +30,6 @@ impl Config for Redirects {
         let mappings_safe = self.mappings.clone();
 
         tokio::task::spawn(async move {
-            println!("Start");
             let mut router = ROUTER.lock().await;
             let binding = mappings_safe.clone();
             let mut mappings = binding.lock().unwrap();
@@ -49,6 +48,7 @@ impl Config for Redirects {
             let json_opt = json::parse(&str);
             if let Err(err) = &json_opt {
                 eprintln!("Error parsing json: {}", err.to_string());
+                return;
             }
 
             let json = json_opt.unwrap();
@@ -75,7 +75,6 @@ impl Config for Redirects {
                     })
                 );
             }
-            println!("End");
         });
 
         Ok(())
