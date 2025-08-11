@@ -61,7 +61,7 @@ PRIVILEGE_TOKEN="secret token"
 ## 🔧 Building & Running
 
 Make sure you have [Rust](https://www.rust-lang.org/tools/install) installed.
-This project is meant to run on GNU/Linux, but i'm pretty sure it should also work on Windows, on MacOS maybe
+This project is meant to run on GNU/Linux, any other platform is unsupported and won't work.
 
 ### Development
 
