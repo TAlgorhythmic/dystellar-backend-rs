@@ -27,55 +27,49 @@ impl Config for Redirects {
 
     fn load(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let path_cl: Box<str> = path.into();
-        let mappings_safe = self.mappings.clone();
+        let mut router = ROUTER.blocking_lock();
+        let mut mappings = self.mappings.lock().unwrap();
 
-        tokio::task::spawn(async move {
-            let mut router = ROUTER.lock().await;
-            let binding = mappings_safe.clone();
-            let mut mappings = binding.lock().unwrap();
+        for (key, _) in &*mappings {
+            router.remove_endpoint(Method::Get, format!("/{key}").as_str());
+        }
+        mappings.clear();
 
-            for (key, _) in &*mappings {
-                router.remove_endpoint(Method::Get, format!("/{key}").as_str());
+        let str_opt = fs::read_to_string(path_cl.to_string());
+        if let Err(err) = &str_opt {
+            eprintln!("Error reading file: {}", err.to_string());
+        }
+
+        let str = str_opt.unwrap();
+        let json_opt = json::parse(&str);
+        if let Err(err) = &json_opt {
+            return Err(format!("Error parsing json: {}", err.to_string()).into());
+        }
+
+        let json = json_opt.unwrap();
+
+        for (key, value) in json.entries() {
+            if let Some(val) = value.as_str() {
+                mappings.push((key.into(), val.into()));
             }
-            mappings.clear();
+        }
 
-            let str_opt = fs::read_to_string(path_cl.to_string());
-            if let Err(err) = &str_opt {
-                eprintln!("Error reading file: {}", err.to_string());
-            }
+        for (key, value) in &*mappings {
+            let val = value.clone();
 
-            let str = str_opt.unwrap();
-            let json_opt = json::parse(&str);
-            if let Err(err) = &json_opt {
-                eprintln!("Error parsing json: {}", err.to_string());
-                return;
-            }
-
-            let json = json_opt.unwrap();
-
-            for (key, value) in json.entries() {
-                if let Some(val) = value.as_str() {
-                    mappings.push((key.into(), val.into()));
-                }
-            }
-
-            for (key, value) in &*mappings {
-                let val = value.clone();
-
-                let _ = router.endpoint(
-                    crate::api::typedef::Method::Get,
-                    format!("/{key}").as_str(),
-                    Box::new(move |_| {
-                        Box::pin({
-                            let url = val.clone();
-                            async move {
-                                Ok(temporary_redirection(&url))
-                            }
-                        })
+            let _ = router.endpoint(
+                crate::api::typedef::Method::Get,
+                format!("/{key}").as_str(),
+                Box::new(move |_| {
+                    Box::pin({
+                        let url = val.clone();
+                        async move {
+                            Ok(temporary_redirection(&url))
+                        }
                     })
-                );
-            }
-        });
+                })
+            );
+        }
 
         Ok(())
     }

@@ -21,10 +21,10 @@ pub enum Method {
 
 impl From<&str> for Method {
     fn from(value: &str) -> Self {
-        if value == "POST" {return Self::Post;}
-        else if value == "DELETE" {return Self::Delete;}
-        else if value == "PATCH" {return Self::Patch;}
-        else if value == "PUT" {return Self::Put}
+        if value == "POST" {Self::Post}
+        else if value == "DELETE" {Self::Delete}
+        else if value == "PATCH" {Self::Patch}
+        else if value == "PUT" {Self::Put}
         else {Self::Get}
     }
 }

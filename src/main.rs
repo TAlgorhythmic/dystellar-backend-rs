@@ -1,6 +1,6 @@
 mod api;
 
-use crate::api::{control::storage::setup::init_db, routers::redirections};
+use crate::api::{control::storage::setup::init_db, routers::{redirections, repository}};
 use api::routers::{microsoft, signal, state, users};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     users::register().await;
     state::register().await?;
     redirections::register()?;
-
+    repository::register().await?;
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;
