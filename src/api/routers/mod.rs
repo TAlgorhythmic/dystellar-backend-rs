@@ -3,6 +3,8 @@ pub mod signal;
 pub mod privileged;
 pub mod users;
 pub mod state;
+pub mod repository;
+pub mod redirections;
 
 use std::sync::{Arc, LazyLock};
 use hyper::{Response, Request, body::{Bytes, Incoming}};

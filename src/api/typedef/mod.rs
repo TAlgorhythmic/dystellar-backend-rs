@@ -24,3 +24,9 @@ pub trait Serializable {
     fn load(key: &str) -> Result<Option<Self>, Box<dyn Error + Send + Sync>> where Self: Sized;
     fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
+
+pub struct Mod {
+    name: Box<str>,
+    version: Box<str>,
+    filename: Box<str>
+}
