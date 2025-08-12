@@ -1,6 +1,6 @@
 mod api;
 
-use crate::api::{control::storage::setup::init_db, routers::redirections, typedef::fs_json::{redirects::Redirects, state::State, Config}};
+use crate::api::{control::storage::setup::init_db, routers::redirections};
 use api::routers::{microsoft, signal, state, users};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;

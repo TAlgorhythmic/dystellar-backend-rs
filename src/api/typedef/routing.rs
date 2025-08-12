@@ -8,7 +8,7 @@ use http_body_util::Full;
 
 use super::http::BackendError;
 
-type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>>>;
+type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
 
 #[derive(PartialEq)]
 pub enum Method {
@@ -44,10 +44,6 @@ pub struct Node {
 pub struct Router {
     base: Node,
 }
-
-unsafe impl Send for Endpoint {}
-unsafe impl Send for Node {}
-unsafe impl Send for Router {}
 
 impl Endpoint {
     pub fn new(method: Method, name: &str, fun: EndpointHandler) -> Self {
