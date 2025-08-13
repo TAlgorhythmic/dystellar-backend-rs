@@ -6,7 +6,7 @@ use crate::api::typedef::Mod;
 
 fn extract_toml_entry(entry: &str) -> Result<Box<str>, Box<dyn Error + Send + Sync>> {
     Ok(unsafe {
-        entry.slice_unchecked(entry.find('"').ok_or::<Box<dyn Error + Send + Sync>>("Malformed toml file".into())?, entry.len() - 2).into()
+        entry.slice_unchecked(entry.find('"').ok_or::<Box<dyn Error + Send + Sync>>("Malformed toml file".into())?, entry.len() - 1).into()
     })
 }
 

@@ -1,28 +1,102 @@
-use std::{collections::HashMap, error::Error, ffi::{CStr, CString}, fs::File, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::{LazyLock, Mutex}};
+use std::{error::Error, ffi::{CStr, CString}, fs::{self, File}, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::{Arc}};
 
-use inotify_sys::{close, inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE};
+use inotify_sys::{inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE, IN_DELETE};
 
-static WATCHERS: LazyLock<Mutex<HashMap<Box<str>, Box<dyn Fn() + Send + Sync + 'static>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
-static INOTIFY_FD: LazyLock<c_int> = LazyLock::new(|| {
-    let fd = unsafe {inotify_init()};
-    if fd == -1 {
-        return fd;
+pub struct WatchedFile {
+    name: Box<str>,
+    path_ref: Arc<str>
+}
+
+pub struct DirWatcher<F> where F: Fn(&str) {
+    recursive: bool,
+    watch_all: bool,
+    fd: i32,
+    wd: c_int,
+    path_base: Arc<str>,
+    subwatchers: Vec<DirWatcher<F>>,
+    watched_files: Option<Arc<Vec<(c_int, Arc<str>, Box<str>)>>>,
+    on_modify: Arc<F>,
+    on_delete: Arc<F>
+}
+
+impl<F> DirWatcher<F> where F: Fn(&str) {
+    pub fn watch(&self, file: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if self.watch_all {
+            return Ok(());
+        }
+
+        
+
+        Ok(())
     }
 
+    fn create_sub(fd: i32, mut directory: &str, recursive: bool, watch_all: bool, on_modify: Arc<F>, on_delete: Arc<F>, watched_files: Option<Arc<Vec<(Arc<str>, Box<str>)>>>) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        if directory.ends_with('/') {
+            directory = unsafe {directory.slice_unchecked(0, directory.len() - 1)};
+        }
 
-    let res = unsafe { inotify_add_watch(fd, CString::new(".").unwrap().as_ptr(), IN_CLOSE_WRITE) };
-    if res < 0 {
-        eprintln!("[inotify] Failed to add watcher");
-        unsafe { close(fd) };
-        return -1;
+        let mut subwatchers: Vec<DirWatcher<F>> = vec![];
+
+        if recursive {
+            for entry in fs::read_dir(directory)? {
+                let entry = entry?;
+
+                if entry.file_type()?.is_dir() {
+                    subwatchers.push(Self::create_sub(fd, format!("{directory}/{}", entry.file_name().to_str().unwrap()).as_str(), recursive, watch_all, on_modify.clone(), on_delete.clone(), watched_files.clone())?);
+                }
+            }
+        }
+
+        let wd = unsafe {inotify_add_watch(fd, CString::new(directory)?.as_ptr(), IN_CLOSE_WRITE | IN_DELETE)};
+
+        Ok(DirWatcher {
+            recursive, watch_all, fd, wd,
+            path_base: directory.into(),
+            subwatchers, watched_files,
+            on_modify, on_delete
+        })
     }
 
-    listen_events(fd);
-    fd
-});
+    pub fn create(mut directory: &str, recursive: bool, watch_all: bool, on_modify: F, on_delete: F) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let fd = unsafe { inotify_init() };
+        if fd == -1 {
+            return Err("Failed to initialize inotify".into());
+        }
+
+        if directory.ends_with('/') {
+            directory = unsafe {directory.slice_unchecked(0, directory.len() - 1)};
+        }
+
+
+        let watched_files = if watch_all {None} else {Some(Arc::new(vec![]))};
+        let mut subwatchers: Vec<DirWatcher<F>> = vec![];
+
+        let on_modify = Arc::new(on_modify);
+        let on_delete = Arc::new(on_delete);
+
+        if recursive {
+            for entry in fs::read_dir(directory)? {
+                let entry = entry?;
+
+                if entry.file_type()?.is_dir() {
+                    subwatchers.push(Self::create_sub(fd, format!("{directory}/{}", entry.file_name().to_str().unwrap()).as_str(), recursive, watch_all, on_modify.clone(), on_delete.clone(), watched_files.clone())?);
+                }
+            }
+        }
+
+        let wd = unsafe {inotify_add_watch(fd, CString::new(directory)?.as_ptr(), IN_CLOSE_WRITE | IN_DELETE)};
+
+        Ok(DirWatcher {
+            recursive, watch_all, fd, wd,
+            path_base: directory.into(),
+            subwatchers, watched_files,
+            on_modify, on_delete
+        })
+    }
+}
 
 fn listen_events(fd: i32) {
-    tokio::task::spawn_blocking(move || {
+    std::thread::spawn(move || {
         let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
         let mut file = File::from(owned_fd);
         let mut buff = [0u8; 4096];
@@ -50,18 +124,4 @@ fn listen_events(fd: i32) {
             }
         }
     });
-}
-
-pub fn register_file_watcher<F>(path: &str, f: F) -> Result<(), Box<dyn Error + Send + Sync>>
-where
-    F: Fn() + Send + Sync + 'static
-{
-    if *INOTIFY_FD == -1 {
-        return Err("[inotify] Failed to initialize inotify, file watcher disabled".into());
-    }
-
-    let mut watchers = WATCHERS.lock().unwrap();
-    watchers.insert(path.into(), Box::new(f));
-
-    Ok(())
 }
