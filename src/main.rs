@@ -1,6 +1,6 @@
 mod api;
 
-use crate::api::{control::storage::setup::init_db, routers::{redirections, repository}};
+use crate::api::{control::{inotify::DirWatcher, storage::setup::init_db}, routers::{redirections, repository}};
 use api::routers::{microsoft, signal, state, users};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -31,14 +31,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
     init_db().await.expect("Failed to initialize database");
 
+    let mut watcher = DirWatcher::create(".")?;
+
     // Register endpoints
     microsoft::register().await;
     signal::register().await;
     privileged::register().await;
     users::register().await;
-    state::register().await?;
-    redirections::register()?;
+    state::register(&mut watcher).await?;
+    redirections::register(&mut watcher)?;
     repository::register().await?;
+
+    // Listen for config file changes
+    watcher.listen();
 
     let address: SocketAddr = (HOST.to_owned() + ":" + PORT).parse().expect("Error parsing ip and port");
     let binding = TcpListener::bind(address).await?;

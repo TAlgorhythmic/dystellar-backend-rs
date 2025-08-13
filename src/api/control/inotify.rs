@@ -1,22 +1,25 @@
-use std::{error::Error, ffi::{CStr, CString}, fs::{self, File}, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::{Arc}};
+use std::{error::Error, ffi::{CStr, CString}, fs::File, io::Read, os::{fd::{FromRawFd, OwnedFd}, raw::{c_char, c_int}}, sync::Mutex};
 
 use inotify_sys::{inotify_add_watch, inotify_event, inotify_init, IN_CLOSE_WRITE, IN_DELETE};
 
-pub struct WatchedFile<F> where F: Fn(&str) {
+type WatchFunction = Box<dyn Fn(&str) + Send + Sync + 'static>;
+
+pub struct WatchedFile {
     filename: Box<str>,
-    on_modify: F,
-    on_delete: F
+    on_modify: WatchFunction,
+    on_delete: Option<WatchFunction>
 }
 
-pub struct DirWatcher<F> where F: Fn(&str) {
+pub struct DirWatcher {
     fd: i32,
     wd: c_int,
     path_base: Box<str>,
-    watched_files: Vec<WatchedFile<F>>,
+    watched_files: Vec<WatchedFile>,
 }
 
-impl<F> DirWatcher<F> where F: Fn(&str) {
-    pub fn watch(&self, file: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+impl DirWatcher {
+    pub fn watch(&mut self, file: &str, on_modify: WatchFunction, on_delete: Option<WatchFunction>) {
+        self.watched_files.push(WatchedFile { filename: file.into(), on_modify, on_delete });
     }
 
     pub fn create(mut directory: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
@@ -36,35 +39,37 @@ impl<F> DirWatcher<F> where F: Fn(&str) {
             watched_files: vec![]
         })
     }
-}
 
-fn listen_events(fd: i32) {
-    std::thread::spawn(move || {
-        let owned_fd = unsafe { OwnedFd::from_raw_fd(fd) };
-        let mut file = File::from(owned_fd);
-        let mut buff = [0u8; 4096];
+    /**
+    * Consumes the instance and listens for events
+    */
+    pub fn listen(self) {
+        std::thread::spawn(move || {
+            let owned_fd = unsafe { OwnedFd::from_raw_fd(self.fd) };
+            let mut file = File::from(owned_fd);
+            let mut buff = [0u8; 4096];
 
-        loop {
-            if let Ok(read) = file.read(&mut buff) {
-                let mut offset = 0;
+            loop {
+                if let Ok(read) = file.read(&mut buff) {
+                    let mut offset = 0;
 
-                while offset < read {
-                    let event = unsafe {buff.as_ptr().add(offset)} as *const inotify_event;
-                    let event_size = std::mem::size_of::<inotify_event>() + unsafe {(*event).len as usize};
+                    while offset < read {
+                        let event = unsafe {buff.as_ptr().add(offset)} as *const inotify_event;
+                        let event_size = std::mem::size_of::<inotify_event>() + unsafe {(*event).len as usize};
 
-                    let str = unsafe { buff.as_ptr().add(std::mem::size_of::<inotify_event>() + offset) as *const c_char };
-                    offset += event_size;
+                        let str = unsafe { buff.as_ptr().add(std::mem::size_of::<inotify_event>() + offset) as *const c_char };
+                        offset += event_size;
 
-                    let watchers = WATCHERS.lock().unwrap();
-                    let string = unsafe { CStr::from_ptr(str) };
+                        let string = unsafe { CStr::from_ptr(str).to_str().unwrap() };
 
-                    if let Some(watcher) = watchers.get(string.to_str().unwrap().into()) {
-                        watcher();
+                        if let Some(watcher) = self.watched_files.iter().find(|w| w.filename.as_ref() == string) {
+                            (watcher.on_modify)(string);
+                        }
                     }
+                } else {
+                    println!("[inotify] Failed to read from inotify");
                 }
-            } else {
-                println!("[inotify] Failed to read from inotify");
             }
-        }
-    });
+        });
+    }
 }

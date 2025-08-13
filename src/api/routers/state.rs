@@ -4,16 +4,16 @@ use http_body_util::Full;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 
-use crate::api::{routers::ROUTER, typedef::{fs_json::{state::State, Config}, BackendError}, utils::response_json};
+use crate::api::{control::inotify::DirWatcher, routers::ROUTER, typedef::{fs_json::{state::State, Config}, BackendError}, utils::response_json};
 
 async fn launcher(req: Request<Incoming>, state: Arc<Mutex<State>>) -> Result<Response<Full<Bytes>>, BackendError> {
     todo!();
     Ok(response_json(object! { ok: true }))
 }
 
-pub async fn register() -> Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn register(watcher: &mut DirWatcher) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut router = ROUTER.lock().await;
-    let state = State::open("state.json")?;
+    let state = State::open("state.json", watcher)?;
 
     router.endpoint(crate::api::typedef::Method::Get,
         "/launcher",
