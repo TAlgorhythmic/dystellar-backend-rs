@@ -1,4 +1,4 @@
-use super::{Method, EndpointHandler}
+use super::{Method, EndpointHandler};
 
 pub struct Endpoint {
     pub method: Method,

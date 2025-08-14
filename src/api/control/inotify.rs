@@ -29,7 +29,7 @@ impl DirWatcher {
         }
 
         if directory.ends_with('/') {
-            directory = unsafe {directory.slice_unchecked(0, directory.len() - 1)};
+            directory = unsafe {directory.get_unchecked(0..directory.len() - 1)};
         }
 
         let wd = unsafe {inotify_add_watch(fd, CString::new(directory)?.as_ptr(), IN_CLOSE_WRITE | IN_DELETE)};

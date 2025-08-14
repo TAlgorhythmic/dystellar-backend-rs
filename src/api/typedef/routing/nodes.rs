@@ -1,15 +1,16 @@
-use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 use http_body_util::Full;
 
-use super::{Method, Node, Endpoint};
+use super::{Method, Endpoint};
 use crate::api::typedef::BackendError;
 
 pub type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
+pub type FsEndpointHandler = Box<dyn Fn(Request<Incoming>, &str) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
 
 impl From<&str> for Method {
     fn from(value: &str) -> Self {
@@ -21,69 +22,98 @@ impl From<&str> for Method {
     }
 }
 
-pub struct RouterNode {
+pub struct FsNodeMapper {
     name: Box<str>,
-    subnodes: Vec<Box<dyn Node>>,
+    endpoint: FsEndpointHandler
+}
+
+pub struct Node {
+    name: Box<str>,
+    subnodes: Vec<Node>,
     endpoints: Vec<Endpoint>,
 }
 
 pub struct Router {
-    base: RouterNode,
+    base: Node,
+    fs_mappers: Vec<FsNodeMapper>
 }
 
-impl Node for RouterNode {
+impl FsNodeMapper {
+    pub fn new(path: &str, func: FsEndpointHandler) -> Self {
+        Self { name: path.into(), endpoint: func }
+    }
+
+    pub fn get_name(&self) -> &str {
+        todo!()
+    }
+}
+
+impl Node {
     fn new(val: &str) -> Self {
         Self { name: val.into(), subnodes: vec![], endpoints: vec![] }
     }
 
-    fn remove_endpoint(&mut self, val: &str, method: &Method) {
-        self.endpoints.retain(|endpoint| &*endpoint.name != val || endpoint.method != *method);
-    }
-
-    fn subnodes_search_mut(&mut self, val: &str) -> Option<&mut Box<dyn Node>> {
-        self.subnodes.iter_mut().find(|n| n.get_name() == val)
-    }
-
-    fn endpoints_search_mut(&mut self, val: &str, method: &Method) -> Option<&mut Endpoint> {
-        self.endpoints.iter_mut().find(|n| *n.name == *val && n.method == *method)
-    }
-
-    fn subnodes_search(&self, val: &str) -> Option<&Box<dyn Node>> {
-        self.subnodes.iter().find(|n| n.get_name() == val)
-    }
-
-    fn endpoints_search(&self, val: &str, method: &Method) -> Option<&Endpoint> {
-        self.endpoints.iter().find(|n| *n.name == *val && n.method == *method)
-    }
-
-    fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    fn is_modifiable(&self) -> bool {
-        true
-    }
-}
-
-impl RouterNode {
     pub fn empty() -> Self {
         Self::new("")
     }
+
 }
 
-fn register_endpoint(i: usize, node: &mut RouterNode, split: Vec<&str>, method: Method, func: EndpointHandler)
+impl Node {
+    pub fn remove_endpoint(&mut self, val: &str, method: &Method) {
+        self.endpoints.retain(|endpoint| &*endpoint.name != val || endpoint.method != *method);
+    }
+
+    pub fn subnodes_search_mut(&mut self, val: &str) -> Option<&mut Node> {
+        self.subnodes.iter_mut().find(|n| n.get_name() == val)
+    }
+
+    pub fn subnodes_search(&self, val: &str) -> Option<&Node> {
+        self.subnodes.iter().find(|n| n.get_name() == val)
+    }
+
+    pub fn endpoints_search(&self, val: &str, method: &Method) -> Option<&Endpoint> {
+        self.endpoints.iter().find(|n| *n.name == *val && n.method == *method)
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_endpoint_recursive(&self, segments: &[&str], method: &Method) -> Option<&Endpoint> {
+        if segments.len() == 1 {
+            return self.endpoints_search(segments[0], method);
+        }
+
+        if let Some(child) = self.subnodes_search(segments[0]) {
+            child.get_endpoint_recursive(&segments[1..], method)
+        } else {
+            None
+        }
+    }
+
+    fn get_endpoint(&self, path: &str, method: &Method) -> Option<&Endpoint> {
+        let it: Vec<&str> = path.trim_start_matches('/').split('/').collect();
+        if it.is_empty() {
+            return None;
+        }
+        self.get_endpoint_recursive(&it, method)
+    }
+}
+
+fn register_endpoint(i: usize, node: &mut Node, split: Vec<&str>, method: Method, func: EndpointHandler)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 {
     if i == split.len() - 1 {
         node.endpoints.push(Endpoint::new(method, split[i], func));
         return Ok(());
     } else {
-        let next: Box<dyn Node>;
+        let next: &mut Node;
 
         if let Some(child) = node.subnodes_search_mut(split[i]) {
             next = child;
         } else {
-            let new = RouterNode::new(split[i]);
+            let new = Node::new(split[i]);
             node.subnodes.push(new);
             next = node.subnodes.last_mut().unwrap();
         }
@@ -94,29 +124,15 @@ fn register_endpoint(i: usize, node: &mut RouterNode, split: Vec<&str>, method: 
 
 impl Router {
     pub fn new() -> Self {
-        Self { base: RouterNode::empty() }
+        Self { base: Node::empty(), fs_mappers: vec![] }
     }
 
     pub fn get_endpoint(&self, path: &str, method: Method) -> Option<&Endpoint> {
-        let split = path.split('/').collect::<Vec<&str>>();
+        self.base.get_endpoint(path, &method)
+    }
 
-        if split.len() < 1 {
-            return None;
-        }
-
-        let mut node = &self.base;
-        for i in 1..split.len() {
-            if i == split.len() - 1 {
-                if let Some(endpoint) = node.endpoints_search(split[i], &method) {
-                    return Some(endpoint);
-                }
-            }
-            if let Some(subnode) = node.subnodes_search(split[i]) {
-                node = subnode;
-                continue;
-            }
-            return None;
-        }
+    pub fn get_mapper(&self, path: &str) -> Option<(&FsNodeMapper, Box<str>)> {
+        if let Some(map) = self.fs_mappers.iter().find(|m| path.starts_with(m.name))
         None
     }
 
@@ -127,8 +143,18 @@ impl Router {
             return;
         }
 
-        let mut node = &mut self.base;
-        for i in 1..split.len() {
+        if split.len() == 2 {
+            self.base.remove_endpoint(split[1], &method);
+            return;
+        }
+
+        let node_opt = self.base.subnodes_search_mut(split[1]);
+        if node_opt.is_none() {
+            return;
+        }
+
+        let mut node = node_opt.unwrap();
+        for i in 2..split.len() {
             if i == split.len() - 1 {
                 node.remove_endpoint(split[i], &method);
                 return;
@@ -140,6 +166,8 @@ impl Router {
             return;
         }
     }
+
+    pub fn map(&self, )
 
     pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
         if !path.starts_with('/') {
