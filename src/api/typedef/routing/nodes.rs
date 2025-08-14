@@ -6,18 +6,10 @@ use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 use http_body_util::Full;
 
-use super::http::BackendError;
+use super::{Method, Node, Endpoint};
+use crate::api::typedef::BackendError;
 
-type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
-
-#[derive(PartialEq)]
-pub enum Method {
-    Get,
-    Post,
-    Delete,
-    Patch,
-    Put,
-}
+pub type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
 
 impl From<&str> for Method {
     fn from(value: &str) -> Self {
@@ -29,75 +21,69 @@ impl From<&str> for Method {
     }
 }
 
-pub struct Endpoint {
-    method: Method,
+pub struct RouterNode {
     name: Box<str>,
-    run: EndpointHandler,
-}
-
-pub struct Node {
-    name: Box<str>,
-    subnodes: Vec<Node>,
+    subnodes: Vec<Box<dyn Node>>,
     endpoints: Vec<Endpoint>,
 }
 
 pub struct Router {
-    base: Node,
+    base: RouterNode,
 }
 
-impl Endpoint {
-    pub fn new(method: Method, name: &str, fun: EndpointHandler) -> Self {
-        Self { name: name.into(), method, run: fun }
-    }
-
-    pub fn get_handler(&self) -> &EndpointHandler {
-        &self.run
-    }
-}
-
-impl Node {
-    pub fn new(val: &str) -> Self {
+impl Node for RouterNode {
+    fn new(val: &str) -> Self {
         Self { name: val.into(), subnodes: vec![], endpoints: vec![] }
     }
 
-    pub fn empty() -> Self {
-        Node::new("")
-    }
-
-    pub fn remove_endpoint(&mut self, val: &str, method: &Method) {
+    fn remove_endpoint(&mut self, val: &str, method: &Method) {
         self.endpoints.retain(|endpoint| &*endpoint.name != val || endpoint.method != *method);
     }
 
-    pub fn subnodes_search_mut(&mut self, val: &str) -> Option<&mut Node> {
-        self.subnodes.iter_mut().find(|n| *n.name == *val)
+    fn subnodes_search_mut(&mut self, val: &str) -> Option<&mut Box<dyn Node>> {
+        self.subnodes.iter_mut().find(|n| n.get_name() == val)
     }
 
-    pub fn endpoints_search_mut(&mut self, val: &str, method: &Method) -> Option<&mut Endpoint> {
+    fn endpoints_search_mut(&mut self, val: &str, method: &Method) -> Option<&mut Endpoint> {
         self.endpoints.iter_mut().find(|n| *n.name == *val && n.method == *method)
     }
 
-    pub fn subnodes_search(&self, val: &str) -> Option<&Node> {
-        self.subnodes.iter().find(|n| *n.name == *val)
+    fn subnodes_search(&self, val: &str) -> Option<&Box<dyn Node>> {
+        self.subnodes.iter().find(|n| n.get_name() == val)
     }
 
-    pub fn endpoints_search(&self, val: &str, method: &Method) -> Option<&Endpoint> {
+    fn endpoints_search(&self, val: &str, method: &Method) -> Option<&Endpoint> {
         self.endpoints.iter().find(|n| *n.name == *val && n.method == *method)
+    }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn is_modifiable(&self) -> bool {
+        true
     }
 }
 
-fn register_endpoint(i: usize, node: &mut Node, split: Vec<&str>, method: Method, func: EndpointHandler)
+impl RouterNode {
+    pub fn empty() -> Self {
+        Self::new("")
+    }
+}
+
+fn register_endpoint(i: usize, node: &mut RouterNode, split: Vec<&str>, method: Method, func: EndpointHandler)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 {
     if i == split.len() - 1 {
         node.endpoints.push(Endpoint::new(method, split[i], func));
         return Ok(());
     } else {
-        let next;
+        let next: Box<dyn Node>;
 
         if let Some(child) = node.subnodes_search_mut(split[i]) {
             next = child;
         } else {
-            let new = Node::new(split[i]);
+            let new = RouterNode::new(split[i]);
             node.subnodes.push(new);
             next = node.subnodes.last_mut().unwrap();
         }
@@ -108,7 +94,7 @@ fn register_endpoint(i: usize, node: &mut Node, split: Vec<&str>, method: Method
 
 impl Router {
     pub fn new() -> Self {
-        Self { base: Node::empty() }
+        Self { base: RouterNode::empty() }
     }
 
     pub fn get_endpoint(&self, path: &str, method: Method) -> Option<&Endpoint> {
