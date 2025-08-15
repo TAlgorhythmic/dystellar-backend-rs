@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -23,7 +24,8 @@ impl From<&str> for Method {
 }
 
 pub struct FsNodeMapper {
-    name: Box<str>,
+    web_path: Box<str>,
+    path: Box<str>,
     endpoint: FsEndpointHandler
 }
 
@@ -39,12 +41,8 @@ pub struct Router {
 }
 
 impl FsNodeMapper {
-    pub fn new(path: &str, func: FsEndpointHandler) -> Self {
-        Self { name: path.into(), endpoint: func }
-    }
-
-    pub fn get_name(&self) -> &str {
-        todo!()
+    pub fn new(path: &str, web_path: &str, func: FsEndpointHandler) -> Self {
+        Self { web_path: web_path.into(), path: path.into(), endpoint: func }
     }
 }
 
@@ -97,6 +95,7 @@ impl Node {
         if it.is_empty() {
             return None;
         }
+
         self.get_endpoint_recursive(&it, method)
     }
 }
@@ -131,8 +130,14 @@ impl Router {
         self.base.get_endpoint(path, &method)
     }
 
-    pub fn get_mapper(&self, path: &str) -> Option<(&FsNodeMapper, Box<str>)> {
-        if let Some(map) = self.fs_mappers.iter().find(|m| path.starts_with(m.name))
+    pub fn get_mapper(&self, path: &str) -> Option<(&FsNodeMapper, String)> {
+        let path_mv = &path;
+        if let Some(map) = self.fs_mappers.iter().find(move |m| path_mv.starts_with(m.web_path.as_ref())) {
+            let fs_path = format!("{}{}", &map.path, unsafe {path.get_unchecked(map.web_path.len()..path.len())});
+
+            return Some((map, fs_path));
+        }
+
         None
     }
 
@@ -167,7 +172,12 @@ impl Router {
         }
     }
 
-    pub fn map(&self, )
+    pub fn map(&mut self, path: &str, map: &str, func: FsEndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let path = path.trim_end_matches('/');
+        self.fs_mappers.push(FsNodeMapper::new(path, map, func));
+
+        Ok(())
+    }
 
     pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
         if !path.starts_with('/') {
