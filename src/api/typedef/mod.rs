@@ -25,7 +25,7 @@ pub trait Serializable {
 }
 
 pub struct Mod {
-    name: Box<str>,
-    version: Box<str>,
-    filename: Box<str>
+    pub name: Box<str>,
+    pub version: Box<str>,
+    pub filename: Box<str>
 }

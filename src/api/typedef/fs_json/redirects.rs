@@ -2,7 +2,7 @@ use std::{fs, sync::{Arc, Mutex}};
 
 use json::JsonValue;
 
-use crate::api::{routers::ROUTER, typedef::Method, utils::temporary_redirection};
+use crate::api::{routers::ROUTER, typedef::routing::Method, utils::temporary_redirection};
 
 use super::Config;
 
@@ -58,7 +58,7 @@ impl Config for Redirects {
             let val = value.clone();
 
             let _ = router.endpoint(
-                crate::api::typedef::Method::Get,
+                Method::Get,
                 format!("/{key}").as_str(),
                 Box::new(move |_| {
                     Box::pin({

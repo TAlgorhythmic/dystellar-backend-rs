@@ -1,17 +1,17 @@
+use std::convert::Infallible;
 use std::error::Error;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 
+use http_body_util::combinators::BoxBody;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
-use http_body_util::Full;
 
 use super::{Method, Endpoint};
 use crate::api::typedef::BackendError;
 
-pub type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
-pub type FsEndpointHandler = Box<dyn Fn(Request<Incoming>, &str) -> Pin<Box<dyn Future<Output = Result<Response<Full<Bytes>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
+pub type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
+pub type FsEndpointHandler = Box<dyn Fn(Request<Incoming>, String) -> Pin<Box<dyn Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
 
 impl From<&str> for Method {
     fn from(value: &str) -> Self {
@@ -43,6 +43,10 @@ pub struct Router {
 impl FsNodeMapper {
     pub fn new(path: &str, web_path: &str, func: FsEndpointHandler) -> Self {
         Self { web_path: web_path.into(), path: path.into(), endpoint: func }
+    }
+
+    pub fn get_handler(&self) -> &FsEndpointHandler {
+        &self.endpoint
     }
 }
 

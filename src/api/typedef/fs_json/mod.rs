@@ -11,7 +11,7 @@ pub trait Config: Sized + Send + Sync + 'static {
     fn open(path: &str, watcher: &mut DirWatcher) -> Result<Arc<Mutex<Self>>, Box<dyn Error + Send + Sync>> {
         let mut conf = Self::default();
 
-        if conf.load(path).is_err() {
+        if conf.load_async(path).is_err() {
             println!("{path} doesn't seem to exist, creating default config...");
             if let Err(err) = conf.save(path) {
                 eprintln!("Failed to save file: {}", err.to_string());
@@ -43,4 +43,10 @@ pub trait Config: Sized + Send + Sync + 'static {
     fn default() -> Self;
     fn to_json(&self) -> JsonValue;
     fn load(&mut self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
+
+    fn load_async(&mut self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        tokio::task::block_in_place(|| {
+            self.load(path)
+        })
+    }
 }

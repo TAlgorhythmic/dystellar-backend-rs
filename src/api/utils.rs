@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 
-use http_body_util::{BodyExt, Full};
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{body::{Bytes, Incoming}, header::{CONTENT_TYPE, LOCATION}, Request, Response};
 use json::{stringify, JsonValue};
 
@@ -13,15 +13,15 @@ pub enum HttpTransaction {
     Res(Response<Incoming>)
 }
 
-pub fn response_json(obj: JsonValue) -> Response<Full<Bytes>> {
+pub fn response_json(obj: JsonValue) -> Response<BoxBody<Bytes, Infallible>> {
     response_status_json(obj, 200)
 }
 
-pub fn response_status_json(obj: JsonValue, status: u16) -> Response<Full<Bytes>> {
+pub fn response_status_json(obj: JsonValue, status: u16) -> Response<BoxBody<Bytes, Infallible>> {
     Response::builder()
         .status(status)
         .header(CONTENT_TYPE, "application/json")
-        .body(Full::new(Bytes::from(stringify(obj))))
+        .body(Full::new(Bytes::from(stringify(obj))).boxed())
         .unwrap()
 }
 
@@ -79,10 +79,10 @@ pub async fn get_body_json(http: HttpTransaction) -> Result<JsonValue, BackendEr
     Ok(json.unwrap())
 }
 
-pub fn temporary_redirection(url: &str) -> Response<Full<Bytes>> {
+pub fn temporary_redirection(url: &str) -> Response<BoxBody<Bytes, Infallible>> {
     Response::builder()
         .status(302)
         .header(LOCATION, url)
-        .body(empty())
+        .body(empty().boxed())
         .unwrap()
 }

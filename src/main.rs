@@ -5,7 +5,7 @@ use api::routers::{microsoft, signal, state, users};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
-use api::service::srv;
+use api::service::srv_api;
 use hyper::service::service_fn;
 
 use crate::api::routers::privileged;
@@ -56,8 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let io = TokioIo::new(stream);
 
         tokio::task::spawn(async move {
-            let service = service_fn(move |req| srv(req, addr));
-            let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection(io, service).await;
+            let service_api = service_fn(move |req| srv_api(req, addr));
+            let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection(io, service_api).await;
 
             if res.is_err() {
                 eprintln!("Error serving connection: {}", res.err().unwrap().to_string());

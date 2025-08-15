@@ -1,11 +1,10 @@
-use std::sync::Arc;
+use std::convert::Infallible;
 
-use http_body_util::Full;
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{body::{Bytes, Incoming}, header::{AUTHORIZATION, CONTENT_TYPE}, Request, Response};
 use json::{array, object, stringify};
-use tokio::sync::Mutex;
 
-use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, Method, Router}, utils::{get_body_url_args, HttpTransaction}};
+use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, routing::Method}, utils::{get_body_url_args, HttpTransaction}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -30,7 +29,7 @@ fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
 * An endpoint used to get the full data of a user, requires a unique token and being from an
 * authorized IP.
 */
-async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, BackendError> {
+async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if ALLOWED_IP == req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
@@ -56,7 +55,7 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Ba
     Ok(Response::builder()
         .header(CONTENT_TYPE, "application/json")
         .header(AUTHORIZATION, TOKEN)
-        .body(Full::new(Bytes::from(stringify(obj))))
+        .body(Full::new(Bytes::from(stringify(obj))).boxed())
         .unwrap())
 }
 
