@@ -3,7 +3,7 @@ pub mod signal;
 pub mod privileged;
 pub mod users;
 pub mod state;
-pub mod repository;
+pub mod stream;
 pub mod redirections;
 
 use std::{convert::Infallible, sync::{Arc, LazyLock}};

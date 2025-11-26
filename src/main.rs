@@ -1,14 +1,11 @@
 mod api;
 
-use crate::api::{control::{inotify::DirWatcher, storage::setup::init_db}, routers::{redirections, repository}};
-use api::routers::{microsoft, signal, state, users};
+use api::{service::srv_api, control::{inotify::DirWatcher, storage::setup::init_db}};
+use api::routers::{microsoft, signal, state, users, redirections, stream, privileged};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use hyper_util::rt::TokioIo;
-use api::service::srv_api;
 use hyper::service::service_fn;
-
-use crate::api::routers::privileged;
 
 pub static HOST: &str = env!("HOST");
 pub static PORT: &str = env!("PORT");
@@ -40,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     users::register().await;
     state::register(&mut watcher).await?;
     redirections::register(&mut watcher)?;
-    repository::register().await?;
+    stream::register().await?;
 
     // Listen for config file changes
     watcher.listen();
