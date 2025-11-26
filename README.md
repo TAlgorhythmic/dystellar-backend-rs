@@ -1,6 +1,6 @@
 # 🛠️ Minecraft Server Auth Backend (Minecraft login with Microsoft OAuth2)
 
-This is a lightweight, low level, high-performance and heavily multithreaded backend written in Rust for Dystellar Network.
+This is a monolithic, lightweight, low level, high-performance and multithreaded backend written in Rust for Dystellar Network.
 
 ---
 
@@ -11,9 +11,12 @@ This is a lightweight, low level, high-performance and heavily multithreaded bac
 ## 🚀 Features
 
 - 🔐 Microsoft OAuth 2.0 Login Integration
-- ⚙️  Environment-based Configuration (Test & Prod)  
+- ⚙️ Environment-based Configuration (Test & Prod)  
 - ⚡ Fast and Safe – Built with Rust
-- 🌐 Designed for seamless Minecraft server integration  
+- 🌐 Designed for seamless Minecraft server integration
+- 🗄️ Support for static file downloads in /repository
+- 📂 Support for static webpage /static
+- ♻️ Dynamic JSON configs with automatic runtime reload on edit
 
 ---
 
