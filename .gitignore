@@ -1,7 +1,7 @@
 /target
 .env
 Cargo.lock
-*.db
+repository/
 data/
 *.json
-repository/
+*.db

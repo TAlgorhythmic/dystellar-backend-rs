@@ -1,4 +1,4 @@
-use std::{convert::Infallible, error::Error, fs, sync::{LazyLock, Mutex}};
+use std::{convert::Infallible, error::Error, fs};
 
 use futures::{StreamExt, TryStreamExt};
 use http_body_util::{combinators::BoxBody, BodyExt, StreamBody};
@@ -6,7 +6,7 @@ use hyper::{body::{Bytes, Frame, Incoming}, header::{CONTENT_DISPOSITION, CONTEN
 use tokio::fs::{try_exists, File};
 use tokio_util::io::ReaderStream;
 
-use crate::api::{routers::ROUTER, typedef::{BackendError, Mod}};
+use crate::api::{routers::ROUTER, typedef::BackendError};
 
 async fn download(_: Request<Incoming>, path: String) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if try_exists(&path).await.map_err(|err| BackendError::new(err.to_string().as_str(), 500))? {

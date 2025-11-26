@@ -35,12 +35,8 @@ impl Config for Redirects {
         }
         mappings.clear();
 
-        let str_opt = fs::read_to_string(path_cl.to_string());
-        if let Err(err) = &str_opt {
-            eprintln!("Error reading file: {}", err.to_string());
-        }
+        let str = fs::read_to_string(path_cl.to_string())?;
 
-        let str = str_opt.unwrap();
         let json_opt = json::parse(&str);
         if let Err(err) = &json_opt {
             return Err(format!("Error parsing json: {}", err.to_string()).into());
