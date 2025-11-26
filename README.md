@@ -15,7 +15,7 @@ This is a monolithic, lightweight, low level, high-performance and multithreaded
 - ⚡ Fast and Safe – Built with Rust
 - 🌐 Designed for seamless Minecraft server integration
 - 🗄️ Support for static file downloads in /repository
-- 📂 Support for static webpage /static
+- 📂 Support for static webpage in /static
 - ♻️ Dynamic JSON configs with automatic runtime reload on edit
 
 ---
