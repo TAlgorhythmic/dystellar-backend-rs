@@ -15,6 +15,7 @@ static RESET_COLOR: &str = "\x1b[0m";
 
 pub async fn srv_api(req: Request<Incoming>, address: SocketAddr) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
     let path: Box<str> = req.uri().path().into();
+    let method = req.method().clone();
     
     let res = handle(req).await;
     if let Err(err) = &res {
@@ -22,10 +23,11 @@ pub async fn srv_api(req: Request<Incoming>, address: SocketAddr) -> Result<Resp
             ok: false,
             error: err.get_msg()
         };
-        println!("{ERROR_COLOR}-> Bad Return Error: {}, code: {}, path: {}, address: {}{RESET_COLOR}", err.get_msg(), err.get_status(), path, address);
+        println!("{ERROR_COLOR}-> [{}] {} {{ error: {}, path: {}, address: {} }}{RESET_COLOR}", err.get_status(), method.as_str(), err.get_msg(), path, address);
         return Ok(response_status_json(value, *err.get_status()));
     }
-    println!("{SUCCESS_COLOR} Successful Connection: path: {}, address: {}{RESET_COLOR}", path, address);
+    let res = res.unwrap();
+    println!("{SUCCESS_COLOR}[{}] {} {{ path: {}, address: {} }}{RESET_COLOR}", res.status().as_str(), method.as_str(), path, address);
 
-    return Ok(res.unwrap());
+    return Ok(res);
 }
