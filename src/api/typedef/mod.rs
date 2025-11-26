@@ -6,7 +6,6 @@ pub mod punishments;
 pub mod permissions;
 pub mod fs_json;
 pub mod routing;
-use std::error::Error;
 
 pub use user::User;
 pub use microsoft::SigninState;
@@ -15,6 +14,8 @@ pub use microsoft::MinecraftData;
 pub use microsoft::XboxLiveTokensData;
 pub use microsoft::MicrosoftTokens;
 pub use http::BackendError;
+
+use std::error::Error;
 
 /**
 * Trait that allows to easily (de)serialize from database/storage.

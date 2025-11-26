@@ -16,7 +16,7 @@ pub fn read_mod_metadata(path: &str) -> Result<Mod, Box<dyn Error + Send + Sync>
     let mut buf = String::new();
 
     let mut metadata = archive.by_name("META-INF/neoforge.mods.toml")?;
-    metadata.read_to_string(&mut buf);
+    metadata.read_to_string(&mut buf)?;
 
     let mut name: Option<Box<str>> = None;
     let mut version: Option<Box<str>> = None;

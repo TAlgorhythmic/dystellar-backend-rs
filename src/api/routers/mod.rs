@@ -7,8 +7,8 @@ pub mod stream;
 pub mod redirections;
 
 use std::{convert::Infallible, sync::{Arc, LazyLock}};
-use hyper::{body::{Body, Bytes, Incoming}, Request, Response};
-use http_body_util::{combinators::BoxBody, Full};
+use hyper::{body::{Bytes, Incoming}, Request, Response};
+use http_body_util::combinators::BoxBody;
 use tokio::sync::Mutex;
 use crate::api::typedef::{routing::nodes::Router, BackendError};
 
