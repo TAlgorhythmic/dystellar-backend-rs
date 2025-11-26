@@ -4,7 +4,8 @@ This is a monolithic, lightweight, low level, high-performance and multithreaded
 
 ---
 
-# Functional, but still in development!
+## ⚠️ Status
+Functional, but still in active development. Use at your own discretion.
 
 ---
 
@@ -14,8 +15,8 @@ This is a monolithic, lightweight, low level, high-performance and multithreaded
 - ⚙️ Environment-based Configuration (Test & Prod)  
 - ⚡ Fast and Safe – Built with Rust
 - 🌐 Designed for seamless Minecraft server integration
-- 🗄️ Support for static file downloads in /repository
-- 📂 Support for static webpage in /static
+- 🗄️ Support for static file downloads from `/repository`
+- 📂 Support for static webpage from `/static`
 - ♻️ Dynamic JSON configs with automatic runtime reload on edit
 
 ---
@@ -64,7 +65,7 @@ PRIVILEGE_TOKEN="secret token"
 ## 🔧 Building & Running
 
 Make sure you have [Rust](https://www.rust-lang.org/tools/install) installed.
-This project is meant to run on GNU/Linux, any other platform is unsupported and won't work.
+This project is meant to run on Linux, any other platform is unsupported and won't work.
 
 ### Development
 
