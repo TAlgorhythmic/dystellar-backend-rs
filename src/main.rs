@@ -2,10 +2,12 @@ mod api;
 
 use api::{service::srv_api, control::{inotify::DirWatcher, storage::setup::init_db}};
 use api::routers::{microsoft, signal, state, users, redirections, stream, privileged};
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
+use std::{net::SocketAddr, thread};
+use tokio::{net::TcpListener, runtime::Builder};
 use hyper_util::rt::TokioIo;
 use hyper::service::service_fn;
+
+use crate::api::routers::mods;
 
 pub static HOST: &str = env!("HOST");
 pub static PORT: &str = env!("PORT");
@@ -23,8 +25,7 @@ where
     }
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 6)]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Init Database
     init_db().await.expect("Failed to initialize database");
 
@@ -38,6 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     state::register(&mut watcher).await?;
     redirections::register(&mut watcher)?;
     stream::register().await?;
+    mods::register().await?;
 
     // Listen for config file changes
     watcher.listen();
@@ -61,4 +63,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         });
     }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let cores = thread::available_parallelism()?.get();
+
+    let runtime = Builder::new_multi_thread()
+        .worker_threads(cores)
+        .enable_all()
+        .build()?;
+
+    runtime.block_on(async {
+        run().await
+    })?;
+
+    Ok(())
 }

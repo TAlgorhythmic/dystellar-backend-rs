@@ -5,6 +5,7 @@ pub mod users;
 pub mod state;
 pub mod stream;
 pub mod redirections;
+pub mod mods;
 
 use std::{convert::Infallible, sync::{Arc, LazyLock}};
 use hyper::{body::{Bytes, Incoming}, Request, Response};
