@@ -6,12 +6,13 @@ use super::Config;
 
 pub struct State {
     pub launcher_url: Box<str>,
-    pub launcher_version: Box<str>
+    pub launcher_version: Box<str>,
+    pub minecraft_version: Box<str>
 }
 
 impl Config for State {
     fn default() -> Self {
-        State { launcher_url: "launcher_url".into(), launcher_version: "0.0".into() }
+        State { launcher_url: "launcher_url".into(), launcher_version: "0.0".into(), minecraft_version: "1.20.1".into() }
     }
 
     fn to_json(&self) -> JsonValue {
@@ -25,8 +26,9 @@ impl Config for State {
         let str = fs::read_to_string(path)?;
 
         let json = json::parse(&str)?;
-        self.launcher_url = json["launcher_url"].as_str().unwrap_or("Failed to fetch launcher url").into();
-        self.launcher_version = json["launcher_version"].as_str().unwrap_or("Failed to fetch launcher version").into();
+        self.launcher_url = json["launcher_url"].as_str().ok_or("Failed to fetch launcher url")?.into();
+        self.launcher_version = json["launcher_version"].as_str().ok_or("Failed to fetch launcher version")?.into();
+        self.minecraft_version = json["minecraft_version"].as_str().ok_or("Failed to fetch minecraft version")?.into();
 
         Ok(())
     }

@@ -6,9 +6,14 @@ use json::object;
 
 use crate::api::{control::inotify::DirWatcher, routers::ROUTER, typedef::{fs_json::{state::State, Config}, routing::Method, BackendError}, utils::response_json};
 
-async fn launcher(req: Request<Incoming>, state: Arc<Mutex<State>>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    todo!();
-    Ok(response_json(object! { ok: true }))
+async fn launcher(_: Request<Incoming>, state: Arc<Mutex<State>>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    let secure = state.lock().unwrap();
+
+    Ok(response_json(object! {
+        launcher_url: secure.launcher_url.as_ref(),
+        launcher_version: secure.launcher_version.as_ref(),
+        minecraft_version: secure.minecraft_version.as_ref()
+    }))
 }
 
 pub async fn register(watcher: &mut DirWatcher) -> Result<(), Box<dyn Error + Send + Sync>> {
