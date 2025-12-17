@@ -1,7 +1,7 @@
 use hyper::header::{HeaderValue, AUTHORIZATION};
 use json::{array, object};
 
-use crate::api::{control::http::get_json, typedef::{BackendError, MicrosoftTokens, MinecraftData, UserCredentials, XboxLiveTokensData}, utils::{get_body_json, HttpTransaction}};
+use crate::api::{control::http::get_json, typedef::*, utils::{get_body_json, HttpTransaction}};
 
 use super::http::{post_json, post_urlencoded};
 
@@ -94,7 +94,7 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<MicrosoftTokens
     Ok(MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into()))
 }
 
-pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, BackendError> {
+pub async fn get_xbox_xts_data(xbox_live_token: &str) -> Result<XstsData, BackendError> {
     let xsts_res = post_json("https://xsts.auth.xboxlive.com/xsts/authorize", object! {
         Properties: object! {
             SandboxId: "RETAIL",
@@ -110,12 +110,15 @@ pub async fn get_xbox_xts_token(xbox_live_token: &str) -> Result<Box<str>, Backe
 
     let body = get_body_json(HttpTransaction::Res(xsts_res.unwrap())).await?;
 
-    let opt = body["Token"].as_str();
-    if opt.is_none() {
-        return Err(BackendError::new("Failed to get xsts token from microsoft", 400));
+    let token = body["Token"].as_str();
+    let uhs = body["DisplayClaims"]["xui"][0]["uhs"].as_str();
+    let xuid = body["DisplayClaims"]["xui"][0]["xid"].as_str();
+
+    if token.is_none() || uhs.is_none() || xuid.is_none() {
+        return Err(BackendError::new("Failed to get XSTS data", 400));
     }
 
-    Ok(opt.unwrap().into())
+    Ok(XstsData { token: token.unwrap().into(), uhs: uhs.unwrap().into(), xuid: xuid.unwrap().into() })
 }
 
 pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<MinecraftData, BackendError> {
@@ -147,11 +150,9 @@ pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<Minecraf
 pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError> {
     let tokens = get_microsoft_tokens(code).await?;
     let xbox_data = get_xbox_live_data(tokens.get_token()).await?;
-    let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;
-    let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_token.as_ref()).await?;
-    println!("minecraft token correct");
-    let name = get_minecraft_username(minecraft_data.get_token()).await?;
-    println!("minecraft username correct");
+    let xsts_data = get_xbox_xts_data(xbox_data.get_token()).await?;
+    let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_data.token.as_ref()).await?;
+    let name = get_minecraft_username(minecraft_data.get_token(), &minecraft_data.uuid).await?;
 
     Ok(UserCredentials::new(
         minecraft_data.uuid,
@@ -159,11 +160,32 @@ pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError
         minecraft_data.token,
         tokens.access_token,
         tokens.refresh_token,
+        xsts_data.uhs,
+        xsts_data.xuid,
         minecraft_data.expires
     ))
 }
 
-pub async fn get_minecraft_username(mc_token: &str) -> Result<Box<str>, BackendError> {
+pub async fn get_minecraft_username(mc_token: &str, uuid: &str) -> Result<Box<str>, BackendError> {
+    let payload = get_json(
+        format!("https://api.minecraftservices.com/entitlements/license?requestId={uuid}").as_str(),
+        Some(&[(AUTHORIZATION, HeaderValue::from_str(format!("Bearer {mc_token}").as_str()).unwrap())])
+    ).await;
+
+    if payload.is_err() {
+        return Err(BackendError::new("Failed to get entitlements", 500));
+    }
+    
+    let payload = get_body_json(HttpTransaction::Res(payload.unwrap())).await?;
+    if payload["items"].members().find(|p| {
+        if let Some(name) = p["name"].as_str() {
+            return name == "product_minecraft" || name == "game_minecraft";
+        }
+        false
+    }).is_none() {
+        return Err(BackendError::new("Buy minecraft at official site first.", 401));
+    }
+
     let res = get_json(
         "https://api.minecraftservices.com/minecraft/profile",
         Some(&[(AUTHORIZATION, HeaderValue::from_str(format!("Bearer {mc_token}").as_str()).unwrap())])
@@ -202,9 +224,9 @@ pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<Use
         }
     };
 
-    let xsts_token = get_xbox_xts_token(xbox_data.get_token()).await?;
-    let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_token.as_ref()).await?;
-    let name = get_minecraft_username(minecraft_data.get_token()).await?;
+    let xsts_data = get_xbox_xts_data(xbox_data.get_token()).await?;
+    let minecraft_data = get_minecraft_token(xbox_data.get_uhs(), xsts_data.token.as_ref()).await?;
+    let name = get_minecraft_username(minecraft_data.get_token(), &minecraft_data.uuid).await?;
 
     Ok(UserCredentials::new(
         minecraft_data.uuid,
@@ -212,6 +234,8 @@ pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<Use
         minecraft_data.token,
         tokens.access_token,
         tokens.refresh_token,
+        xsts_data.uhs,
+        xsts_data.xuid,
         minecraft_data.expires
     ))
 }

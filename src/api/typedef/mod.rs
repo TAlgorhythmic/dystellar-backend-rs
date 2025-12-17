@@ -13,6 +13,7 @@ pub use microsoft::UserCredentials;
 pub use microsoft::MinecraftData;
 pub use microsoft::XboxLiveTokensData;
 pub use microsoft::MicrosoftTokens;
+pub use microsoft::XstsData;
 pub use http::BackendError;
 
 use json::JsonValue;

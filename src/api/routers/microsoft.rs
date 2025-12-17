@@ -90,9 +90,12 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
     Ok(response_json(object! {
         ok: true,
         uuid: user_credentials.get_uuid().as_ref(),
+        username: user_credentials.get_name().as_ref(),
         minecraft_token: user_credentials.get_minecraft_token().as_ref(),
         access_token: user_credentials.get_access_token().as_ref(),
         refresh_token: user_credentials.get_refresh_token().as_ref(),
+        uhs: user_credentials.uhs.as_ref(),
+        xuid: user_credentials.xuid.as_ref(),
         expires_in: *user_credentials.get_expiration()
     }))
 }
@@ -162,9 +165,12 @@ async fn login(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infalli
         ok: true,
         authenticated: true,
         uuid: session.get_uuid().as_ref(),
+        username: session.get_name().as_ref(),
         minecraft_token: session.get_minecraft_token().as_ref(),
         access_token: session.get_access_token().as_ref(),
         refresh_token: session.get_refresh_token().as_ref(),
+        uhs: session.uhs.as_ref(),
+        xuid: session.xuid.as_ref(),
         expires_in: *session.get_expiration()
     }))
 }
