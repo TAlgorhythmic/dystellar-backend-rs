@@ -95,7 +95,6 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
         access_token: user_credentials.get_access_token().as_ref(),
         refresh_token: user_credentials.get_refresh_token().as_ref(),
         uhs: user_credentials.uhs.as_ref(),
-        xuid: user_credentials.xuid.as_ref(),
         expires_in: *user_credentials.get_expiration()
     }))
 }
@@ -170,7 +169,6 @@ async fn login(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infalli
         access_token: session.get_access_token().as_ref(),
         refresh_token: session.get_refresh_token().as_ref(),
         uhs: session.uhs.as_ref(),
-        xuid: session.xuid.as_ref(),
         expires_in: *session.get_expiration()
     }))
 }

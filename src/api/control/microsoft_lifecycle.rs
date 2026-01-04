@@ -112,13 +112,12 @@ pub async fn get_xbox_xts_data(xbox_live_token: &str) -> Result<XstsData, Backen
 
     let token = body["Token"].as_str();
     let uhs = body["DisplayClaims"]["xui"][0]["uhs"].as_str();
-    let xuid = body["DisplayClaims"]["xui"][0]["xid"].as_str();
 
-    if token.is_none() || uhs.is_none() || xuid.is_none() {
+    if token.is_none() || uhs.is_none() {
         return Err(BackendError::new("Failed to get XSTS data", 400));
     }
 
-    Ok(XstsData { token: token.unwrap().into(), uhs: uhs.unwrap().into(), xuid: xuid.unwrap().into() })
+    Ok(XstsData { token: token.unwrap().into(), uhs: uhs.unwrap().into() })
 }
 
 pub async fn get_minecraft_token(uhs: &str, xsts_token: &str) -> Result<MinecraftData, BackendError> {
@@ -161,7 +160,6 @@ pub async fn login_minecraft(code: &str) -> Result<UserCredentials, BackendError
         tokens.access_token,
         tokens.refresh_token,
         xsts_data.uhs,
-        xsts_data.xuid,
         minecraft_data.expires
     ))
 }
@@ -235,7 +233,6 @@ pub async fn login_minecraft_existing(mut tokens: MicrosoftTokens) -> Result<Use
         tokens.access_token,
         tokens.refresh_token,
         xsts_data.uhs,
-        xsts_data.xuid,
         minecraft_data.expires
     ))
 }
