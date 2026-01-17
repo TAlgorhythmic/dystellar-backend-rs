@@ -71,6 +71,11 @@ impl SerializableJson for User {
                     .iter()
                     .map(|p| p.to_json()).collect()
             ),
+            perms: JsonValue::Array(self.perms.iter().map(|p| p.to_json()).collect()),
+            group: match &self.group {
+                Some(g) => Some(g.name.as_ref()),
+                _ => None
+            }
         }
     }
 
@@ -89,7 +94,15 @@ impl SerializableJson for User {
         let friends: Vec<Box<str>> = json["friends"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
         let ignores: Vec<Box<str>> = json["ignores"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
         let inbox: Vec<Box<dyn Mail>> = get_mails_from_json(&json["inbox"]);
-        let punishments: 
+        let punishments: Vec<Punishment> = json["punishments"].members().filter_map(|json| Punishment::from_json(json).ok()).collect();
+        let perms: Vec<Permission> = json["perms"].members().filter_map(|json| Permission::from_json(json).ok()).collect();
+        let group: Option<Group> = Group::from_json(&json["group"]).ok();
+
+        Ok(Self {
+            uuid, name, email, chat, pms, suffix, lang, scoreboard, coins,
+            friend_reqs, created_at: DateTime::from_timestamp_millis(created_at as i64).unwrap_or(Utc::now()),
+            friends, ignores, inbox, punishments, perms, group
+        })
     }
 }
 

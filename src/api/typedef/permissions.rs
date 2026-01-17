@@ -29,10 +29,10 @@ impl SerializableJson for Permission {
     }
 
     fn from_json(json: &json::JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
-        Self {
+        Ok(Self {
             permission: json["permission"].as_str().ok_or(BackendError::new("permission.permission missing", 400))?.into(),
-            value: json["value"].as_str().ok_or(BackendError::new("permission.value missing", 400))?.into(),
-        }
+            value: json["value"].as_bool().ok_or(BackendError::new("permission.value missing", 400))?,
+        })
     }
 }
 
@@ -49,11 +49,11 @@ impl SerializableJson for Group {
     }
 
     fn from_json(json: &json::JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
-        Self {
+        Ok(Self {
             name: json["name"].as_str().ok_or(BackendError::new("group.name missing", 400))?.into(),
             prefix: json["prefix"].as_str().ok_or(BackendError::new("group.prefix missing", 400))?.into(),
             suffix: json["suffix"].as_str().ok_or(BackendError::new("group.suffix missing", 400))?.into(),
-            perms: json["perms"].members().map(|j| Permission::from_json(j)).collect()
-        }
+            perms: json["perms"].members().filter_map(|j| Permission::from_json(j).ok()).collect()
+        })
     }
 }

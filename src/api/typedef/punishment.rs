@@ -55,9 +55,9 @@ impl SerializableJson for Punishment {
             _ => expiration_date_opt.as_str().map(|s| DateTime::from_str(s).unwrap_or(Utc::now()))
         };
 
-        Self {
+        Ok(Self {
             id: json["id"].as_u64().unwrap_or(800),
-            title: json["title"].as_str().ok_or(BackendError::new("punishment.title missing", 400))?,
+            title: json["title"].as_str().ok_or(BackendError::new("punishment.title missing", 400))?.into(),
             creation_date: created_at,
             expiration_date: expiration_date,
             reason: json["reason"].as_str().unwrap_or("Unspecified").into(),
@@ -66,7 +66,7 @@ impl SerializableJson for Punishment {
             allow_ranked: json["allow_ranked"].as_bool().ok_or(BackendError::new("punishment.allow_ranked missing", 400))?,
             allow_unranked: json["allow_unranked"].as_bool().ok_or(BackendError::new("punishment.allow_unranked missing", 400))?,
             allow_join_minigames: json["allow_join_minigames"].as_bool().ok_or(BackendError::new("punishment.allow_join_minigames missing", 400))?
-        }
+        })
     }
 }
 

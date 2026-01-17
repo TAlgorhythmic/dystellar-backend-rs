@@ -3,7 +3,7 @@ use std::{error::Error, str::from_utf8, sync::{Arc, LazyLock}};
 use json::parse;
 use sled::{IVec, Tree};
 
-use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{mailing::{get_mails_from_json, Mail}, permissions::{Group, Permission}, punishments::{get_punishments_from_json, Punishment}, User}};
+use crate::api::{encoder::{decode_datetime, decode_u64}, typedef::{User, jsonutils::SerializableJson, mailing::{Mail, get_mails_from_json}, permissions::{Group, Permission}, punishment::Punishment}};
 use super::setup::get_client;
 
 // Trees
@@ -59,14 +59,14 @@ pub fn set_default_group(name: &str) -> Result<(), Box<dyn Error + Send + Sync>>
 pub fn get_group_full(name: &str) -> Result<Option<Group>, Box<dyn Error + Send + Sync>> {
     let tree = GROUPS.clone();
 
-    let modification_raw_opt = tree.get(format!("{name}:modified_at"))?;
-    if modification_raw_opt.is_none() {
+    let prefix = tree.get(format!("{name}:prefix"))?;
+    let suffix = tree.get(format!("{name}:suffix"))?;
+    if prefix.is_none() || suffix.is_none() {
         return Ok(None);
     }
 
-    let prefix = tree.get(format!("{name}:prefix"))?.unwrap_or("".into());
-    let suffix = tree.get(format!("{name}:suffix"))?.unwrap_or("".into());
-    let last_modification = decode_datetime(&*modification_raw_opt.unwrap())?;
+    let prefix = prefix.unwrap();
+    let suffix = suffix.unwrap();
     let mut perms = vec![];
 
     for key in tree.scan_prefix(format!("{name}:permissions:")) {
@@ -79,7 +79,6 @@ pub fn get_group_full(name: &str) -> Result<Option<Group>, Box<dyn Error + Send 
         prefix: from_utf8(&prefix)?.into(),
         suffix: from_utf8(&suffix)?.into(),
         perms,
-        last_modification
     }))
 }
 
@@ -134,7 +133,7 @@ fn get_user_mails(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Mail>>, Bo
 
     let json = parse(from_utf8(&opt.unwrap())?)?;
 
-    Ok(get_mails_from_json(json))
+    Ok(get_mails_from_json(&json))
 }
 
 fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>, Box<dyn Error + Send + Sync>> {
@@ -148,13 +147,13 @@ fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>,
     Ok(perms)
 }
 
-fn get_user_punishments(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Punishment>>, Box<dyn Error + Send + Sync>> {
+fn get_user_punishments(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Punishment>, Box<dyn Error + Send + Sync>> {
     let serie = tree.get(format!("{uuid}:punishments"))?;
     if serie.is_none() {
         return Ok(vec![]);
     }
 
-    Ok(get_punishments_from_json(parse(from_utf8(&serie.unwrap())?)?))
+    Ok(parse(from_utf8(&serie.unwrap())?)?.members().filter_map(|json| Punishment::from_json(json).ok()).collect())
 }
 
 pub fn get_user_from_uuid(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {
