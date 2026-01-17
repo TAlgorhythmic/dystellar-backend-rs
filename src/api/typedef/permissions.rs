@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
+use json::{JsonValue, object};
 
-use crate::api::{control::storage::query::get_group_full, typedef::Serializable};
+use crate::api::typedef::{BackendError, jsonutils::SerializableJson};
 
 pub struct Permission {
     pub permission: Box<str>,
@@ -12,21 +12,48 @@ pub struct Group {
     pub prefix: Box<str>,
     pub suffix: Box<str>,
     pub perms: Vec<Permission>,
-    pub last_modification: DateTime<Utc>
 }
 
 impl Group {
     pub fn new(name: &str) -> Self {
-        Self { name: name.into(), prefix: "".into(), suffix: "".into(), perms: vec![], last_modification: Utc::now() }
+        Self { name: name.into(), prefix: "".into(), suffix: "".into(), perms: vec![] }
     }
 }
 
-impl Serializable for Group {
-    fn load(key: &str) -> Result<Option<Self>, Box<dyn std::error::Error + Send + Sync>> where Self: Sized {
-        get_group_full(key)
+impl SerializableJson for Permission {
+    fn to_json(&self) -> json::JsonValue {
+        object! {
+            permission: self.permission.as_ref(),
+            value: self.value
+        }
     }
 
-    fn save(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        todo!()
+    fn from_json(json: &json::JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
+        Self {
+            permission: json["permission"].as_str().ok_or(BackendError::new("permission.permission missing", 400))?.into(),
+            value: json["value"].as_str().ok_or(BackendError::new("permission.value missing", 400))?.into(),
+        }
+    }
+}
+
+impl SerializableJson for Group {
+    fn to_json(&self) -> json::JsonValue {
+        object! {
+            name: self.name.as_ref(),
+            prefix: self.prefix.as_ref(),
+            suffix: self.suffix.as_ref(),
+            perms: JsonValue::Array(
+                self.perms.iter().map(|p| p.to_json()).collect()
+            )
+        }
+    }
+
+    fn from_json(json: &json::JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
+        Self {
+            name: json["name"].as_str().ok_or(BackendError::new("group.name missing", 400))?.into(),
+            prefix: json["prefix"].as_str().ok_or(BackendError::new("group.prefix missing", 400))?.into(),
+            suffix: json["suffix"].as_str().ok_or(BackendError::new("group.suffix missing", 400))?.into(),
+            perms: json["perms"].members().map(|j| Permission::from_json(j)).collect()
+        }
     }
 }

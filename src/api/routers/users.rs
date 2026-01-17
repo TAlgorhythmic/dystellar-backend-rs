@@ -23,7 +23,7 @@ async fn get(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallibl
     let token_header = req.headers().get(AUTHORIZATION);
 
     if token_header.is_none() {
-        return Ok(response_json(user.into()));
+        return Ok(response_json(user.to_json_reduced()));
     } else {
         let token = token_header.unwrap();
         let token_str = token.to_str().map_err(|_| BackendError::new("Failed to parse header", 500))?;
@@ -39,7 +39,7 @@ async fn get(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallibl
                     tokens_map.remove(token_str);
                     return Err(BackendError::new("This token has expired or does not exist", 401));
                 }
-                return Ok(response_json(user.to_json_complete()));
+                return Ok(response_json(user.to_json()));
             }
         }
         return Err(BackendError::new("This token has expired or does not exist", 401));

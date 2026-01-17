@@ -43,14 +43,6 @@ pub fn generate_sha256(file: &str) -> Result<Box<str>, Box<dyn Error + Send + Sy
     Ok(format!("{:x}", result).into_boxed_str())
 }
 
-/**
-* Trait that allows to easily (de)serialize from database/storage.
-*/
-pub trait Serializable {
-    fn load(key: &str) -> Result<Option<Self>, Box<dyn Error + Send + Sync>> where Self: Sized;
-    fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>>;
-}
-
 #[derive(Debug, Clone)]
 pub struct ModMetadata {
     pub name: Box<str>,

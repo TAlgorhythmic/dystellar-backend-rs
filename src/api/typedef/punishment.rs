@@ -19,10 +19,6 @@ pub struct Punishment {
 }
 
 impl Punishment {
-    pub fn compute_message(&self) -> Vec<Box<str>> {
-
-    }
-
     pub fn get_priority(&self) -> u8 {
         !self.alsoip as u8 +
         !self.allow_chat as u8 +
@@ -47,7 +43,7 @@ impl SerializableJson for Punishment {
             allow_chat: self.allow_chat,
             allow_ranked: self.allow_ranked,
             allow_unranked: self.allow_unranked,
-            allow_join_minigames: self.allow_join_minigames
+            allow_join_minigames: self.allow_join_minigames,
         }
     }
 

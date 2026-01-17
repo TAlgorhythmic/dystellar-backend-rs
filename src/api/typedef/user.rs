@@ -8,7 +8,7 @@ use crate::api::typedef::BackendError;
 use crate::api::typedef::jsonutils::SerializableJson;
 use crate::api::typedef::mailing::{Mail, get_mails_from_json};
 use crate::api::typedef::permissions::{Group, Permission};
-use crate::api::typedef::punishments::Punishment;
+use crate::api::typedef::punishment::Punishment;
 
 static PMS_ENABLED: u8 = 0;
 static PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
@@ -65,7 +65,12 @@ impl SerializableJson for User {
                 self.inbox
                     .iter()
                     .map(|mail| mail.to_json()).collect()
-            )
+            ),
+            punishments: JsonValue::Array(
+                self.punishments
+                    .iter()
+                    .map(|p| p.to_json()).collect()
+            ),
         }
     }
 
@@ -84,7 +89,7 @@ impl SerializableJson for User {
         let friends: Vec<Box<str>> = json["friends"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
         let ignores: Vec<Box<str>> = json["ignores"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
         let inbox: Vec<Box<dyn Mail>> = get_mails_from_json(&json["inbox"]);
-        let punini
+        let punishments: 
     }
 }
 
