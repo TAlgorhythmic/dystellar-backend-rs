@@ -4,7 +4,9 @@ use chrono::{DateTime, Utc};
 use json::{array, object, JsonValue};
 
 use crate::api::control::storage::query::{get_default_group_name, get_group_full};
-use crate::api::typedef::mailing::Mail;
+use crate::api::typedef::BackendError;
+use crate::api::typedef::jsonutils::SerializableJson;
+use crate::api::typedef::mailing::{Mail, get_mails_from_json};
 use crate::api::typedef::permissions::{Group, Permission};
 use crate::api::typedef::punishments::Punishment;
 
@@ -27,29 +29,13 @@ pub struct User {
     pub friends: Vec<Box<str>>,
     pub ignores: Vec<Box<str>>,
     pub inbox: Vec<Box<dyn Mail>>,
-    pub punishments: Vec<Box<dyn Punishment>>,
+    pub punishments: Vec<Punishment>,
     pub perms: Vec<Permission>,
     pub group: Option<Group>
 }
 
-impl From<User> for JsonValue {
-    fn from(value: User) -> Self {
-        let group_name = value.group.as_ref().map(|g| g.name.as_ref()).unwrap_or("none");
-
-        let res = object! {
-            uuid: value.uuid.as_ref(),
-            name: value.name.as_ref(),
-            suffix: value.suffix.as_ref(),
-            created_at: value.created_at.to_string(),
-            punishments: array![value.punishments.iter().map(|pun| pun.to_json()).collect::<Vec<JsonValue>>()],
-            group: group_name
-        };
-        res
-    }
-}
-
-impl User {
-    pub fn to_json_complete(&self) -> JsonValue {
+impl SerializableJson for User {
+    fn to_json(&self) -> JsonValue {
         object! {
             uuid: self.uuid.as_ref(),
             name: self.name.as_ref(),
@@ -80,6 +66,39 @@ impl User {
                     .iter()
                     .map(|mail| mail.to_json()).collect()
             )
+        }
+    }
+
+    fn from_json(json: &JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
+        let uuid: Box<str> = json["uuid"].as_str().ok_or(BackendError::new("Missing user.uuid", 400))?.into();
+        let name: Box<str> = json["name"].as_str().ok_or(BackendError::new("Missing user.uuid", 400))?.into();
+        let email: Option<Box<str>> = json["email"].as_str().map(|e| e.into());
+        let chat: bool = json["chat"].as_bool().unwrap_or(true);
+        let pms: u8 = json["pms"].as_u8().unwrap_or(PMS_ENABLED);
+        let suffix: Box<str> = json["suffix"].as_str().ok_or(BackendError::new("Missing user.suffix", 400))?.into();
+        let lang: Box<str> = json["lang"].as_str().ok_or(BackendError::new("Missing user.lang", 400))?.into();
+        let scoreboard: bool = json["scoreboard"].as_bool().unwrap_or(true);
+        let coins: u64 = json["coins"].as_u64().ok_or(BackendError::new("Missing user.coins", 400))?;
+        let friend_reqs: bool = json["friend_reqs"].as_bool().unwrap_or(true);
+        let created_at: u64 = json["created_at"].as_u64().ok_or(BackendError::new("Missing user.created_at", 400))?;
+        let friends: Vec<Box<str>> = json["friends"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
+        let ignores: Vec<Box<str>> = json["ignores"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
+        let inbox: Vec<Box<dyn Mail>> = get_mails_from_json(&json["inbox"]);
+        let punini
+    }
+}
+
+impl User {
+    pub fn to_json_reduced(&self) -> JsonValue {
+        let group_name = self.group.as_ref().map(|g| g.name.as_ref()).unwrap_or("none");
+
+        object! {
+            uuid: self.uuid.as_ref(),
+            name: self.name.as_ref(),
+            suffix: self.suffix.as_ref(),
+            created_at: self.created_at.to_string(),
+            punishments: array![self.punishments.iter().map(|pun| pun.to_json()).collect::<Vec<JsonValue>>()],
+            group: group_name
         }
     }
 

@@ -6,6 +6,13 @@ edition = "2021"
 [build-dependencies]
 dotenv = "0.15.0"
 
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"
+debug = false
+panic = "abort"
+
 [dependencies]
 tokio = { version = "1.43.0", features = ["full"]}
 argon2 = "0.5.3"

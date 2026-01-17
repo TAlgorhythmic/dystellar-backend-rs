@@ -4,7 +4,7 @@ use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{body::{Bytes, Incoming}, header::{AUTHORIZATION, CONTENT_TYPE}, Request, Response};
 use json::{array, object, stringify};
 
-use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, routing::Method}, utils::{get_body_url_args, HttpTransaction}};
+use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, jsonutils::SerializableJson, routing::Method}, utils::{HttpTransaction, get_body_url_args}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -49,7 +49,7 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
 
     let obj = object! {
         ok: true,
-        data: data.map(|v| array![ v.to_json_complete() ]).unwrap_or(array![])
+        data: data.map(|v| array![ v.to_json() ]).unwrap_or(array![])
     };
 
     Ok(Response::builder()

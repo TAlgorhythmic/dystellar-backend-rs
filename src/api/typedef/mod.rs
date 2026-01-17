@@ -2,10 +2,11 @@ mod user;
 mod http;
 mod microsoft;
 pub mod mailing;
-pub mod punishments;
 pub mod permissions;
 pub mod fs_json;
 pub mod routing;
+pub mod jsonutils;
+pub mod punishment;
 
 pub use user::User;
 pub use microsoft::SigninState;

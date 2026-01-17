@@ -38,7 +38,7 @@ pub fn get_mail_from_json(json: &JsonValue) -> Result<Box<dyn Mail>, Box<dyn Err
     }
 }
 
-pub fn get_mails_from_json(json: JsonValue) -> Vec<Box<dyn Mail>> {
+pub fn get_mails_from_json(json: &JsonValue) -> Vec<Box<dyn Mail>> {
     let mut res: Vec<Box<dyn Mail>> = vec![];
 
     for member in json.members() {
