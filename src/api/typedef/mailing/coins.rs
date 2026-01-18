@@ -3,9 +3,7 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use json::{object, JsonValue};
 
-use crate::api::{encoder::decode_datetime, typedef::User};
-
-use super::{Mail, Claimable};
+use super::Mail;
 
 pub const COINS_SERIAL_ID: u8 = 1;
 
@@ -59,16 +57,5 @@ impl Mail for Coins {
             "coins": self.coins,
             "claimed": self.is_claimed
         }
-    }
-}
-
-impl Claimable for Coins {
-    fn is_claimed(&self) -> &bool {
-        &self.is_claimed
-    }
-
-    fn claim(&mut self, user: &mut User) {
-        user.set_coins(*user.get_coins() + self.coins);
-        self.is_claimed = true;
     }
 }

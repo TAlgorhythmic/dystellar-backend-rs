@@ -1,4 +1,6 @@
-use std::{error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, str::Utf8Error};
+
+use sled::transaction::TransactionError;
 
 #[derive(Debug)]
 pub struct BackendError {
@@ -26,3 +28,41 @@ impl Display for BackendError {
 }
 
 impl Error for BackendError {}
+
+impl From<sled::Error> for BackendError {
+    fn from(value: sled::Error) -> Self {
+        println!("Error from sled: {}", value.to_string());
+
+        Self { msg: "Internal Error".into(), status: 500 }
+    }
+}
+
+impl From<json::JsonError> for BackendError {
+    fn from(value: json::JsonError) -> Self {
+        println!("Error from json: {}", value.to_string());
+
+        Self { msg: "Internal Error".into(), status: 500 }
+    }
+}
+
+impl<T> From<TransactionError<T>> for BackendError where T: Display {
+    fn from(value: TransactionError<T>) -> Self {
+        println!("Error from sled transaction: {}", value.to_string());
+
+        Self { msg: "Internal Error".into(), status: 500 }
+    }
+}
+
+impl From<Box<dyn Error + Send + Sync>> for BackendError {
+    fn from(value: Box<dyn Error + Send + Sync>) -> Self {
+        Self { msg: value.to_string().into_boxed_str(), status: 500 }
+    }
+}
+
+impl From<Utf8Error> for BackendError {
+    fn from(value: Utf8Error) -> Self {
+        println!("Error from utf8 parsing: {}", value.to_string());
+
+        Self { msg: "Internal Error".into(), status: 500 }
+    }
+}

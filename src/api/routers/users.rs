@@ -5,7 +5,7 @@ use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
 use tokio::sync::Mutex;
 
-use crate::api::{control::storage::query::get_user_from_uuid, routers::ROUTER, typedef::{BackendError, jsonutils::SerializableJson, routing::Method}, utils::{get_body_url_args, response_json}};
+use crate::api::{control::storage::query::get_user, routers::ROUTER, typedef::{BackendError, jsonutils::SerializableJson, routing::Method}, utils::{get_body_url_args, response_json}};
 
 pub static TOKENS: LazyLock<Arc<Mutex<HashMap<Box<str>, (Box<str>, DateTime<Utc>)>>>> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
@@ -17,7 +17,7 @@ pub static TOKENS: LazyLock<Arc<Mutex<HashMap<Box<str>, (Box<str>, DateTime<Utc>
 async fn get(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let args = get_body_url_args(&req).await?;
     let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid param is required", 400))?;
-    let user = get_user_from_uuid(uuid.as_ref()).map_err(|_| BackendError::new("Failed to get user", 500))?
+    let user = get_user(uuid.as_ref()).map_err(|_| BackendError::new("Failed to get user", 500))?
         .ok_or(BackendError::new("This user does not exist", 404))?;
 
     let token_header = req.headers().get(AUTHORIZATION);

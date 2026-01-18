@@ -6,7 +6,6 @@ use std::error::Error;
 use chrono::{DateTime, Utc};
 use json::JsonValue;
 
-use crate::api::typedef::User;
 
 pub trait Mail: Send + Sync {
     fn from_json(json: &JsonValue) -> Self where Self: Sized;
@@ -17,10 +16,6 @@ pub trait Mail: Send + Sync {
     fn to_json(&self) -> JsonValue;
 }
 
-pub trait Claimable: Send + Sync {
-    fn is_claimed(&self) -> &bool;
-    fn claim(&mut self, user: &mut User);
-}
 
 pub fn get_mail_from_json(json: &JsonValue) -> Result<Box<dyn Mail>, Box<dyn Error + Send + Sync>> {
     let type_opt = json["type"].as_u8();
@@ -48,4 +43,8 @@ pub fn get_mails_from_json(json: &JsonValue) -> Vec<Box<dyn Mail>> {
     }
 
     res
+}
+
+pub fn get_json_from_mails(mails: &Vec<Box<dyn Mail>>) -> JsonValue {
+    JsonValue::Array(mails.iter().map(|m| m.to_json()).collect())
 }
