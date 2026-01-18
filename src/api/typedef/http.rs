@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display, str::Utf8Error};
+use std::{error::Error, fmt::Display, num::ParseIntError, str::Utf8Error};
 
 use sled::transaction::TransactionError;
 
@@ -32,6 +32,14 @@ impl Error for BackendError {}
 impl From<sled::Error> for BackendError {
     fn from(value: sled::Error) -> Self {
         println!("Error from sled: {}", value.to_string());
+
+        Self { msg: "Internal Error".into(), status: 500 }
+    }
+}
+
+impl From<ParseIntError> for BackendError {
+    fn from(value: ParseIntError) -> Self {
+        println!("Error parsing int: {}", value.to_string());
 
         Self { msg: "Internal Error".into(), status: 500 }
     }

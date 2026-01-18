@@ -1,4 +1,4 @@
-use std::{cmp::min, error::Error, str::from_utf8, sync::{Arc, LazyLock}};
+use std::{cmp::min, str::from_utf8, sync::{Arc, LazyLock}};
 
 use json::stringify;
 use sled::{IVec, Tree, transaction::ConflictableTransactionError};
@@ -32,8 +32,11 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
         for friend in &user.friends {
             tree.insert(format!("{uuid}:friends:{friend}").as_bytes(), &[1])?;
         }
+
+        let pun_tree = PUNISHMENTS.clone();
         for pun in &user.punishments {
             tree.insert(format!("{uuid}:punishments:{}", pun.id).as_bytes(), &[])?;
+            pun_tree.insert(pun.id.to_be_bytes(), stringify(pun.to_json()).as_bytes())?;
         }
         for perm in &user.perms {
             tree.insert(format!("{uuid}:permissions:{}", perm.permission).as_bytes(), &[perm.value as u8])?;
@@ -183,20 +186,28 @@ fn get_user_mails(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<dyn Mail>>, Ba
 fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>, BackendError> {
     let mut perms = vec![];
 
-    for perm in tree.scan_prefix(format!("{uuid}:permissions:")) {
+    let prefix = format!("{uuid}:permissions:");
+    for perm in tree.scan_prefix(&prefix) {
         let (key, value) = perm?;
-        perms.push(Permission { permission: from_utf8(&key)?.into(), value: value[0] != 0 });
+        perms.push(Permission { permission: from_utf8(&key[prefix.len()..])?.into(), value: value[0] != 0 });
     }
 
     Ok(perms)
 }
 
-fn get_user_punishments(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Punishment>, BackendError> {
+fn get_user_punishments(uuid: &str) -> Result<Vec<Punishment>, BackendError> {
     let mut puns = vec![];
-    for pun in tree.scan_prefix(format!("{uuid}:punishments:")) {
-        let (_, value) = pun?;
 
-        puns.push(Punishment::from_json(&json::parse(from_utf8(&value)?)?)?);
+    let prefix = format!("{uuid}:punishments:");
+    let tree = USERS.clone();
+    let pun_tree = PUNISHMENTS.clone();
+
+    for pun in tree.scan_prefix(&prefix) {
+        let id = from_utf8(&pun?.0)?.parse::<u64>()?;
+        let value = pun_tree.get(id.to_be_bytes())?.ok_or(BackendError::new("Punishment not found", 500))?;
+        let pun = Punishment::from_json(&json::parse(from_utf8(&value)?)?)?;
+
+        puns.push(pun);
     }
 
     Ok(puns)
@@ -232,7 +243,7 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
     let friends: Vec<Box<str>> = get_friends(uuid, &tree)?;
     let ignores: Vec<Box<str>> = get_ignores(uuid, &tree)?;
     let inbox: Vec<Box<dyn Mail>> = get_user_mails(uuid, &tree)?;
-    let punishments = get_user_punishments(uuid, &tree)?;
+    let punishments = get_user_punishments(uuid)?;
     let perms: Vec<Permission> = get_user_permissions(uuid, &tree)?;
     let group = get_group_from_opt(tree.get(format!("{uuid}:group"))?)?;
 
