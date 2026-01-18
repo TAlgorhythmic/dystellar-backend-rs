@@ -148,12 +148,14 @@ fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>,
 }
 
 fn get_user_punishments(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Punishment>, Box<dyn Error + Send + Sync>> {
-    let serie = tree.get(format!("{uuid}:punishments"))?;
-    if serie.is_none() {
-        return Ok(vec![]);
+    let mut puns = vec![];
+    for pun in tree.scan_prefix(format!("{uuid}:punishments:")) {
+        let (_, value) = pun?;
+
+        puns.push(Punishment::from_json(&parse(from_utf8(&value)?)?)?);
     }
 
-    Ok(parse(from_utf8(&serie.unwrap())?)?.members().filter_map(|json| Punishment::from_json(json).ok()).collect())
+    Ok(puns)
 }
 
 pub fn get_user_from_uuid(uuid: &str) -> Result<Option<User>, Box<dyn Error + Send + Sync>> {

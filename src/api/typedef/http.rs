@@ -1,3 +1,5 @@
+use std::{error::Error, fmt::Display};
+
 #[derive(Debug)]
 pub struct BackendError {
     msg: Box<str>,
@@ -16,3 +18,11 @@ impl BackendError {
         self.msg.as_ref()
     }
 }
+
+impl Display for BackendError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.msg)
+    }
+}
+
+impl Error for BackendError {}

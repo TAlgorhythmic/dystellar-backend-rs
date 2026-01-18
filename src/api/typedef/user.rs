@@ -10,9 +10,9 @@ use crate::api::typedef::mailing::{Mail, get_mails_from_json};
 use crate::api::typedef::permissions::{Group, Permission};
 use crate::api::typedef::punishment::Punishment;
 
-static PMS_ENABLED: u8 = 0;
-static PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
-static PMS_DISABLED: u8 = 2;
+const PMS_ENABLED: u8 = 0;
+const PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
+const PMS_DISABLED: u8 = 2;
 
 pub struct User {
     pub uuid: Box<str>,
@@ -141,41 +141,5 @@ impl User {
             suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true,
             created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], punishments: vec![], perms: vec![], group: group_default
         }
-    }
-
-    pub fn get_coins(&self) -> &u64 {
-        &self.coins
-    }
-
-    pub fn set_name(&mut self, name: Box<str>) {
-        self.name = name;
-    }
-
-    pub fn set_email(&mut self, email: Option<Box<str>>) {
-        self.email = email;
-    }
-
-    pub fn set_chat_enabled(&mut self, chat: bool) {
-        self.chat = chat;
-    }
-
-    pub fn set_dms_enabled(&mut self, dms: u8) {
-        self.pms = dms;
-    }
-
-    pub fn set_suffix(&mut self, suffix: Box<str>) {
-        self.suffix = suffix;
-    }
-
-    pub fn set_lang(&mut self, lang: &str) {
-        self.lang = lang.into();
-    }
-
-    pub fn set_friend_reqs(&mut self, friend_reqs: bool) {
-        self.friend_reqs = friend_reqs;
-    }
-
-    pub fn set_coins(&mut self, coins: u64) {
-        self.coins = coins;
     }
 }
