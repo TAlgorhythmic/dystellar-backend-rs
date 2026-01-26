@@ -16,10 +16,8 @@ fn check_token(transaction: HttpTransaction) -> Result<(), BackendError> {
     };
 
     let header = http.get(AUTHORIZATION);
-    if let Some(h) = header {
-        if h.to_str().unwrap() == TOKEN {
-            return Ok(());
-        }
+    if let Some(h) = header && h.to_str().unwrap() == TOKEN {
+        return Ok(());
     }
 
     Err(BackendError::new("Operation not permitted.", 401))
