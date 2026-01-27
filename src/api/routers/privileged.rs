@@ -5,7 +5,7 @@ use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
 use json::{array, object};
 
-use crate::api::{control::storage::query::{create_punishment, get_user}, routers::ROUTER, typedef::{BackendError, jsonutils::SerializableJson, routing::Method}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
+use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected}, routers::ROUTER, typedef::{BackendError, jsonutils::SerializableJson, routing::Method}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -71,17 +71,12 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
     let transaction = HttpTransaction::Req(req);
     check_token(&transaction)?;
     
-    let data = get_user(uuid)?;
+    let data = get_user(uuid)?.ok_or(BackendError::new("User not found", 404))?;
 
-    let obj = object! {
-        ok: true,
-        data: data.map(|v| array![ v.to_json() ]).unwrap_or(array![])
-    };
-
-    Ok(response_json(obj))
+    Ok(response_json(data.to_json()))
 }
 
-async fn get_profile(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if ALLOWED_IP == req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
@@ -90,9 +85,12 @@ async fn get_profile(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
     check_token(&HttpTransaction::Req(req))?;
 
     let uuid = args.get("uuid").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
+    let name = args.get("name").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
     let address = args.get("address").ok_or(BackendError::new("Falformed url, address expected", 400))?;
 
-    let mut data = get_user(uuid.as_ref())?;
+    let data = get_user_connected(uuid.as_ref(), name.as_ref(), address.as_ref())?;
+
+    Ok(response_json(data.to_json()))
 }
 
 pub async fn register() {
@@ -100,6 +98,10 @@ pub async fn register() {
 
     router.endpoint(Method::Get,
         "/api/privileged/player_data",
+        Box::new(|req| {Box::pin(player_data(req))})
+    ).expect("Failed to register status endpoint");
+    router.endpoint(Method::Get,
+        "/api/privileged/user_connected",
         Box::new(|req| {Box::pin(player_data(req))})
     ).expect("Failed to register status endpoint");
     router.endpoint(Method::Post,

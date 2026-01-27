@@ -131,8 +131,8 @@ pub fn get_user_connected(uuid: &str, name: &str, address: &str) -> Result<User,
 
     for p in tree.scan_prefix(address.get(0..address.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap())
         .filter_map(|p| {
-            let raw = p.ok()?.1.as_ptr() as *const u64;
-            let id = u64::from_be(unsafe { *raw });
+            let raw: [u8; 8] = p.ok()?.1.as_ref().try_into().ok()?;
+            let id = u64::from_be_bytes(raw);
 
             Punishment::from_json(
                 &json::parse(
@@ -291,10 +291,8 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
     let lang = from_utf8(&lang_binding)?;
     let scoreboard = tree.get(format!("{uuid}:scoreboard"))?.unwrap_or("1".into())[0] != 0;
     let coins = if let Some(data) = tree.get(format!("{uuid}:coins"))? {
-        let mut buf = [0u8; 8];
-        for i in 0..min(8, data.len()) { buf[i] = data[i]; }
-
-        u64::from_be_bytes(buf)
+        let raw: [u8; 8] = data.as_ref().try_into().map_err(|_| BackendError::new("Corrupt coins data", 500))?;
+        u64::from_be_bytes(raw)
     } else { 0 };
     let friend_reqs = tree.get(format!("{uuid}:friend_reqs"))?.unwrap_or("1".into())[0] != 0;
     let created_at = decode_datetime(&*tree.get(format!("{uuid}:created_at"))?.unwrap())?;
