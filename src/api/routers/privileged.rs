@@ -71,12 +71,7 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
     let transaction = HttpTransaction::Req(req);
     check_token(&transaction)?;
     
-    let data_res = get_user(uuid);
-    if let Err(err) = &data_res {
-        return Err(BackendError::new(err.to_string().as_str(), 500));
-    }
-
-    let data = data_res.unwrap();
+    let data = get_user(uuid)?;
 
     let obj = object! {
         ok: true,
@@ -84,6 +79,20 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
     };
 
     Ok(response_json(obj))
+}
+
+async fn get_profile(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP == req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+
+    let args = get_body_url_args(&req).await?;
+    check_token(&HttpTransaction::Req(req))?;
+
+    let uuid = args.get("uuid").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
+    let address = args.get("address").ok_or(BackendError::new("Falformed url, address expected", 400))?;
+
+    let mut data = get_user(uuid.as_ref())?;
 }
 
 pub async fn register() {

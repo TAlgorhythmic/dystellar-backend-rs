@@ -32,12 +32,12 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
         tree.insert(format!("{uuid}:friend_reqs").as_bytes(), &[user.friend_reqs as u8])?;
         tree.insert(format!("{uuid}:created_at").as_bytes(), &encode_datetime(user.created_at))?;
         for friend in &user.friends {
-            tree.insert(format!("{uuid}:friends:{friend}").as_bytes(), &[1])?;
+            tree.insert(format!("{uuid}:friends:{friend}").as_bytes(), friend.as_bytes())?;
         }
 
         let pun_tree = PUNISHMENTS.clone();
         for pun in &user.punishments {
-            tree.insert(format!("{uuid}:punishments:{}", pun.id).as_bytes(), &[1])?;
+            tree.insert(format!("{uuid}:punishments:{}", pun.id).as_bytes(), &pun.id.to_be_bytes())?;
             pun_tree.insert(pun.id.to_be_bytes(), stringify(pun.to_json()).as_bytes())?;
         }
         for perm in &user.perms {
@@ -48,7 +48,7 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
         }
         tree.insert(format!("{uuid}:mails").as_bytes(), stringify(get_json_from_mails(&user.inbox)).as_bytes())?;
         for ignored in &user.ignores {
-            tree.insert(format!("{uuid}:ignores:{ignored}").as_bytes(), &[1])?;
+            tree.insert(format!("{uuid}:ignores:{ignored}").as_bytes(), ignored.as_bytes())?;
         }
 
         Ok::<(), ConflictableTransactionError>(())
@@ -83,15 +83,17 @@ pub fn create_punishment(
             allow_unranked, allow_join_minigames
         };
 
+        db.insert(&id.to_be_bytes(), json::stringify(punishment.to_json()).as_bytes())?;
+
         Ok::<Punishment, ConflictableTransactionError>(punishment)
     })?;
 
     let tree = USERS.clone();
-    tree.insert(format!("{user_uuid}:punishments:{}", punishment.id), &[1])?;
+    tree.insert(format!("{user_uuid}:punishments:{}", punishment.id), &punishment.id.to_be_bytes())?;
     if punishment.alsoip {
         let tree = IP_PUNISHMENTS.clone();
 
-        tree.insert(format!("{}:{}", subject_addr.get(0..subject_addr.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap(), punishment.id), &[1]);
+        tree.insert(format!("{}:{}", subject_addr.get(0..subject_addr.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap(), punishment.id), &punishment.id.to_be_bytes());
     }
 
     Ok(punishment)
@@ -120,10 +122,28 @@ pub fn get_user_by_name(name: &str) -> Result<Option<User>, BackendError> {
     get_user(uuid.unwrap().as_ref())
 }
 
-pub fn get_user_connected(uuid: &str, name: &str) -> Result<User, BackendError> {
-    let user = get_user(uuid)?.unwrap_or(create_new_player(uuid, name)?);
+pub fn get_user_connected(uuid: &str, name: &str, address: &str) -> Result<User, BackendError> {
+    let mut user = get_user(uuid)?.unwrap_or(create_new_player(uuid, name)?);
     let tree = NAME_INDEXES.clone();
     tree.insert(name.as_bytes(), uuid.as_bytes())?;
+    let tree = IP_PUNISHMENTS.clone();
+    let puns_tree = PUNISHMENTS.clone();
+
+    for p in tree.scan_prefix(address.get(0..address.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap())
+        .filter_map(|p| {
+            let raw = p.ok()?.1.as_ptr() as *const u64;
+            let id = u64::from_be(unsafe { *raw });
+
+            Punishment::from_json(
+                &json::parse(
+                    from_utf8(
+                        &puns_tree.get(&id.to_be_bytes()).ok()??
+                    ).ok()?
+                ).ok()?
+            ).ok()
+        }) {
+        user.punishments.push(p);
+    }
 
     Ok(user)
 }
@@ -175,11 +195,9 @@ fn get_friends(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, BackendErr
     let mut friends: Vec<Box<str>> = vec![];
 
     for friend in tree.scan_prefix(format!("{uuid}:friends:")) {
-        let (key, value) = friend?;
-        if value[0] != 0 {
-            if let Ok(f) = from_utf8(&key) {
-                friends.push(f.into());
-            }
+        let (_, value) = friend?;
+        if let Ok(f) = from_utf8(&value) {
+            friends.push(f.into());
         }
     }
 
@@ -203,11 +221,9 @@ fn get_ignores(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, BackendErr
     let mut ignores: Vec<Box<str>> = vec![];
 
     for ignore in tree.scan_prefix(format!("{uuid}:ignores:")) {
-        let (key, value) = ignore?;
-        if value[0] != 0 {
-            if let Ok(ig) = from_utf8(&key) {
-                ignores.push(ig.into());
-            }
+        let (_, value) = ignore?;
+        if let Ok(ig) = from_utf8(&value) {
+            ignores.push(ig.into());
         }
     }
 
