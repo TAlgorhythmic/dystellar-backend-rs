@@ -1,5 +1,6 @@
 use std::{cmp::min, str::from_utf8, sync::{Arc, LazyLock}};
 
+use chrono::{DateTime, Utc};
 use json::stringify;
 use sled::{IVec, Tree, transaction::ConflictableTransactionError};
 
@@ -11,6 +12,7 @@ static USERS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_
 static NAME_INDEXES: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("nindex").expect("Failed to open 'nindex' tree")));
 static GROUPS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("groups").expect("Failed to open 'groups' tree")));
 static PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("punishments").expect("Failed to open 'punishments' tree")));
+static IP_PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("ip_punishments").expect("Failed to open 'ip_punishments' tree")));
 
 pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
     let tree = USERS.clone();
@@ -35,7 +37,7 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
 
         let pun_tree = PUNISHMENTS.clone();
         for pun in &user.punishments {
-            tree.insert(format!("{uuid}:punishments:{}", pun.id).as_bytes(), &[])?;
+            tree.insert(format!("{uuid}:punishments:{}", pun.id).as_bytes(), &[1])?;
             pun_tree.insert(pun.id.to_be_bytes(), stringify(pun.to_json()).as_bytes())?;
         }
         for perm in &user.perms {
@@ -53,6 +55,46 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
     })?;
 
     Ok(user)
+}
+
+pub fn create_punishment(
+    user_uuid: &str,
+    subject_addr: &str,
+    title: &str,
+    creation_date: DateTime<Utc>,
+    expiration_date: Option<DateTime<Utc>>,
+    reason: &str,
+    alsoip: bool,
+    allow_chat: bool,
+    allow_ranked: bool,
+    allow_unranked: bool,
+    allow_join_minigames: bool
+) -> Result<Punishment, BackendError> {
+    let tree = PUNISHMENTS.clone();
+
+    let punishment = tree.transaction(|db| {
+        let id = db.generate_id()?;
+        
+        let punishment = Punishment {
+            id, title: title.into(),
+            creation_date, expiration_date,
+            reason: reason.into(),
+            alsoip, allow_chat, allow_ranked,
+            allow_unranked, allow_join_minigames
+        };
+
+        Ok::<Punishment, ConflictableTransactionError>(punishment)
+    })?;
+
+    let tree = USERS.clone();
+    tree.insert(format!("{user_uuid}:punishments:{}", punishment.id), &[1])?;
+    if punishment.alsoip {
+        let tree = IP_PUNISHMENTS.clone();
+
+        tree.insert(format!("{}:{}", subject_addr.get(0..subject_addr.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap(), punishment.id), &[1]);
+    }
+
+    Ok(punishment)
 }
 
 pub fn set_index(name: &str, uuid: &str) -> Result<(), BackendError> {
