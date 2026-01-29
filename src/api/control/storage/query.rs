@@ -1,4 +1,4 @@
-use std::{cmp::min, str::from_utf8, sync::{Arc, LazyLock}};
+use std::{str::from_utf8, sync::{Arc, LazyLock}};
 
 use chrono::{DateTime, Utc};
 use json::stringify;
@@ -10,6 +10,7 @@ use super::setup::get_client;
 // Trees
 static USERS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("users").expect("Failed to open 'users' tree")));
 static NAME_INDEXES: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("nindex").expect("Failed to open 'nindex' tree")));
+static IP_INDEXES: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("iindex").expect("Failed to open 'iindex' tree")));
 static GROUPS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("groups").expect("Failed to open 'groups' tree")));
 static PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("punishments").expect("Failed to open 'punishments' tree")));
 static IP_PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("ip_punishments").expect("Failed to open 'ip_punishments' tree")));
@@ -59,8 +60,8 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
 
 pub fn create_punishment(
     user_uuid: &str,
-    subject_addr: &str,
     title: &str,
+    r#type: &str,
     creation_date: DateTime<Utc>,
     expiration_date: Option<DateTime<Utc>>,
     reason: &str,
@@ -77,6 +78,7 @@ pub fn create_punishment(
         
         let punishment = Punishment {
             id, title: title.into(),
+            r#type: r#type.into(),
             creation_date, expiration_date,
             reason: reason.into(),
             alsoip, allow_chat, allow_ranked,
@@ -91,18 +93,29 @@ pub fn create_punishment(
     let tree = USERS.clone();
     tree.insert(format!("{user_uuid}:punishments:{}", punishment.id), &punishment.id.to_be_bytes())?;
     if punishment.alsoip {
+        let idx = IP_INDEXES.clone();
         let tree = IP_PUNISHMENTS.clone();
 
-        tree.insert(format!("{}:{}", subject_addr.get(0..subject_addr.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap(), punishment.id), &punishment.id.to_be_bytes());
+        let ip = idx.get(user_uuid)?.ok_or(BackendError::new("IP not indexed", 400))?;
+        let subject_addr = from_utf8(&ip)?;
+
+        tree.insert(format!("{}:{}", subject_addr.get(0..subject_addr.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap(), punishment.id), &punishment.id.to_be_bytes())?;
     }
 
     Ok(punishment)
 }
 
-pub fn set_index(name: &str, uuid: &str) -> Result<(), BackendError> {
+pub fn set_name_index(name: &str, uuid: &str) -> Result<(), BackendError> {
     let tree = NAME_INDEXES.clone();
 
     tree.insert(name, uuid)?;
+    Ok(())
+}
+
+pub fn set_ip_index(address: &str, uuid: &str) -> Result<(), BackendError> {
+    let tree = IP_INDEXES.clone();
+
+    tree.insert(address, uuid)?;
     Ok(())
 }
 
@@ -124,8 +137,9 @@ pub fn get_user_by_name(name: &str) -> Result<Option<User>, BackendError> {
 
 pub fn get_user_connected(uuid: &str, name: &str, address: &str) -> Result<User, BackendError> {
     let mut user = get_user(uuid)?.unwrap_or(create_new_player(uuid, name)?);
-    let tree = NAME_INDEXES.clone();
-    tree.insert(name.as_bytes(), uuid.as_bytes())?;
+    set_name_index(name, uuid)?;
+    set_ip_index(address, uuid)?;
+
     let tree = IP_PUNISHMENTS.clone();
     let puns_tree = PUNISHMENTS.clone();
 
@@ -302,7 +316,6 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
     let punishments = get_user_punishments(uuid)?;
     let perms: Vec<Permission> = get_user_permissions(uuid, &tree)?;
     let group = get_group_from_opt(tree.get(format!("{uuid}:group"))?)?;
-
 
     let user = User {
         uuid: uuid.into(),

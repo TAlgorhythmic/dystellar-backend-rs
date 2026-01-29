@@ -36,7 +36,7 @@ async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infall
     let json = get_body_json(transaction).await?;
 
     let user_uuid = json["user_uuid"].as_str().ok_or(BackendError::new("user_uuid missing", 400))?;
-    let subject_addr = json["subject_addr"].as_str().ok_or(BackendError::new("subject_json missing", 400))?;
+    let r#type = json["type"].as_str().ok_or(BackendError::new("type missing", 400))?;
     let title = json["title"].as_str().ok_or(BackendError::new("title missing", 400))?;
     let creation_date = DateTime::from_timestamp_millis(
         json["creation_date"].as_i64().ok_or(BackendError::new("creation_date missing", 400))?
@@ -52,7 +52,7 @@ async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infall
     let allow_unranked = json["allow_unranked"].as_bool().unwrap_or(false);
     let allow_join_minigames = json["allow_join_minigames"].as_bool().unwrap_or(false);
 
-    let pun = create_punishment(user_uuid, subject_addr, title, creation_date, expiration_date, reason, alsoip, allow_chat, allow_ranked, allow_unranked, allow_join_minigames)?;
+    let pun = create_punishment(user_uuid, title, r#type, creation_date, expiration_date, reason, alsoip, allow_chat, allow_ranked, allow_unranked, allow_join_minigames)?;
     Ok(response_json(pun.to_json()))
 }
 

@@ -8,6 +8,7 @@ use crate::api::typedef::{BackendError, jsonutils::SerializableJson};
 pub struct Punishment {
     pub id: u64,
     pub title: Box<str>,
+    pub r#type: Box<str>,
     pub creation_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
     pub reason: Box<str>,
@@ -33,6 +34,7 @@ impl SerializableJson for Punishment {
         object! {
             id: self.id,
             title: self.title.as_ref(),
+            type: self.r#type.as_ref(),
             created_at: self.creation_date.to_string(),
             expiration_date: match self.expiration_date {
                 Some(date) => JsonValue::String(date.to_string()),
@@ -58,6 +60,7 @@ impl SerializableJson for Punishment {
         Ok(Self {
             id: json["id"].as_u64().unwrap_or(800),
             title: json["title"].as_str().ok_or(BackendError::new("punishment.title missing", 400))?.into(),
+            r#type: json["type"].as_str().ok_or(BackendError::new("punishment.type missing", 400))?.into(),
             creation_date: created_at,
             expiration_date: expiration_date,
             reason: json["reason"].as_str().unwrap_or("Unspecified").into(),

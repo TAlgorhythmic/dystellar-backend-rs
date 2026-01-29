@@ -6,7 +6,7 @@ use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_index}}, routers::{users::TOKENS, ROUTER}, typedef::{routing::Method, BackendError, MicrosoftTokens, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
+use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_name_index}}, routers::{users::TOKENS, ROUTER}, typedef::{routing::Method, BackendError, MicrosoftTokens, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -80,7 +80,7 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
     let tokens = MicrosoftTokens::new(opt_access_token.unwrap().into(), opt_refresh_token.unwrap().into());
     let user_credentials = login_minecraft_existing(tokens).await?;
 
-    let _ = set_index(&user_credentials.name, &user_credentials.get_uuid());
+    let _ = set_name_index(&user_credentials.name, &user_credentials.get_uuid());
 
     let tokens = TOKENS.clone();
     let mut tokens_map = tokens.lock().await;
@@ -154,7 +154,7 @@ async fn login(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infalli
         return Err(BackendError::new("Backend internal error.", 500));
     }
 
-    let _ = set_index(&session.name, &session.get_uuid());
+    let _ = set_name_index(&session.name, &session.get_uuid());
 
     let tokens = TOKENS.clone();
     let mut tokens_map = tokens.lock().await;
