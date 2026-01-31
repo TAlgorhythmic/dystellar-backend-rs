@@ -1,11 +1,10 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, error::Error};
 
 use chrono::DateTime;
 use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
-use json::{array, object};
 
-use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected}, routers::ROUTER, typedef::{BackendError, jsonutils::SerializableJson, routing::Method}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
+use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected}, typedef::{BackendError, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -93,19 +92,10 @@ async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
     Ok(response_json(data.to_json()))
 }
 
-pub async fn register() {
-    let mut router = ROUTER.lock().await;
+pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
+    router.endpoint(Method::Get, "/api/privileged/player_data", player_data)?;
+    router.endpoint(Method::Get, "/api/privileged/user_connected", player_data)?;
+    router.endpoint(Method::Post, "/api/privileged/punish", punish)?;
 
-    router.endpoint(Method::Get,
-        "/api/privileged/player_data",
-        Box::new(|req| {Box::pin(player_data(req))})
-    ).expect("Failed to register status endpoint");
-    router.endpoint(Method::Get,
-        "/api/privileged/user_connected",
-        Box::new(|req| {Box::pin(player_data(req))})
-    ).expect("Failed to register status endpoint");
-    router.endpoint(Method::Post,
-        "/api/privileged/punish",
-        Box::new(|req| {Box::pin(punish(req))})
-    ).expect("Failed to register punish endpoint");
+    Ok(())
 }

@@ -1,12 +1,12 @@
-use std::{collections::HashMap, convert::Infallible, sync::{Arc, LazyLock}, time::Duration};
+use std::{collections::HashMap, convert::Infallible, error::Error, sync::{Arc, LazyLock}, time::Duration};
 
 use chrono::{Days, Utc};
-use http_body_util::{combinators::BoxBody, Full};
+use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 use tokio::sync::Mutex;
 
-use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_name_index}}, routers::{users::TOKENS, ROUTER}, typedef::{routing::Method, BackendError, MicrosoftTokens, SigninState}, utils::{get_body_json, get_body_url_args, response_json, HttpTransaction}};
+use crate::api::{control::{microsoft_lifecycle::{login_minecraft, login_minecraft_existing}, storage::query::{create_new_player, set_name_index}}, routers::users::TOKENS, typedef::{BackendError, MicrosoftTokens, SigninState, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static PENDING: LazyLock<Arc<Mutex<HashMap<Box<str>, SigninState>>>> = LazyLock::new(|| {Arc::new(Mutex::new(HashMap::new()))});
 
@@ -211,30 +211,11 @@ async fn callback(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infa
     Ok(response_json(object! { ok: true, msg: "Login successful! You can now close this tab." }))
 }
 
-pub async fn register() {
-    let mut router = ROUTER.lock().await;
+pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
+    router.endpoint(Method::Get, "/api/microsoft/callback", callback)?;
+    router.endpoint(Method::Post, "/api/microsoft/login_existing", login_existing)?;
+    router.endpoint(Method::Get, "/api/microsoft/login", login)?;
+    router.endpoint(Method::Post, "/api/microsoft/loginsession", loginsession)?;
 
-    router.endpoint(
-        Method::Get, 
-        "/api/microsoft/callback",
-        Box::new(|req| {Box::pin(callback(req))})
-    ).expect("Failed to register microsoft callback endpoint");
-
-    router.endpoint(
-        Method::Post,
-        "/api/microsoft/login_existing",
-        Box::new(|req| {Box::pin(login_existing(req))})
-    ).expect("Failed to register login_existing endpoint");
-
-    router.endpoint(
-        Method::Get,
-        "/api/microsoft/login",
-        Box::new(|req| {Box::pin(login(req))})
-    ).expect("Failed to register microsoft login endpoint");
-
-    router.endpoint(
-        Method::Post,
-        "/api/microsoft/loginsession",
-        Box::new(|req| {Box::pin(loginsession(req))})
-    ).expect("Failed to register microsoft login session endpoint");
+    Ok(())
 }

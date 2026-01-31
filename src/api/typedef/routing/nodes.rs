@@ -59,9 +59,6 @@ impl Node {
         Self::new("")
     }
 
-}
-
-impl Node {
     pub fn remove_endpoint(&mut self, val: &str, method: &Method) {
         self.endpoints.retain(|endpoint| &*endpoint.name != val || endpoint.method != *method);
     }
@@ -176,14 +173,22 @@ impl Router {
         }
     }
 
-    pub fn map(&mut self, path: &str, map: &str, func: FsEndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn map<F, Fut>(&mut self, path: &str, map: &str, func: F) -> Result<(), Box<dyn Error + Send + Sync>>
+    where
+        F: Fn(Request<Incoming>, String) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static
+    {
         let path = path.trim_end_matches('/');
-        self.fs_mappers.push(FsNodeMapper::new(path, map, func));
+        self.fs_mappers.push(FsNodeMapper::new(path, map, Box::new(move |req, s| Box::pin(func(req, s)))));
 
         Ok(())
     }
 
-    pub fn endpoint(&mut self, method: Method, path: &str, func: EndpointHandler) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn endpoint<F, Fut>(&mut self, method: Method, path: &str, func: F) -> Result<(), Box<dyn Error + Send + Sync>>
+    where
+        F: Fn(Request<Incoming>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static
+    {
         if !path.starts_with('/') {
             return Err("Invalid path name".into());
         }
@@ -194,6 +199,6 @@ impl Router {
             return Err("Not an endpoint".into());
         }
 
-        register_endpoint(1, &mut self.base, split, method, func)
+        register_endpoint(1, &mut self.base, split, method, Box::new(move |req| Box::pin(func(req))))
     }
 }

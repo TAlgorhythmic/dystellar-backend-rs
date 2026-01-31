@@ -1,8 +1,10 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
-use crate::api::{control::inotify::DirWatcher, typedef::fs_json::{redirects::Redirects, Config}};
+use tokio::sync::Mutex;
 
-pub fn register(watcher: &mut DirWatcher) -> Result<(), Box<dyn Error + Send + Sync>> {
+use crate::api::{control::inotify::DirWatcher, typedef::{fs_json::{Config, redirects::Redirects}, routing::nodes::Router}};
+
+pub fn register(watcher: &mut DirWatcher, router: Arc<Mutex<Router>>) -> Result<(), Box<dyn Error + Send + Sync>> {
     let _ = Redirects::open("redirections.json", watcher)?;
 
     Ok(())

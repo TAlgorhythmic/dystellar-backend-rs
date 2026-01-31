@@ -1,10 +1,13 @@
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use http_body_util::combinators::BoxBody;
 use hyper::body::{Incoming, Bytes};
 use hyper::{Request, Response};
 use json::object;
+use tokio::sync::Mutex;
+use crate::api::typedef::routing::nodes::Router;
 use crate::api::utils::response_status_json;
 
 use super::routers::handle;
@@ -13,11 +16,11 @@ static ERROR_COLOR: &str = "\x1b[31m";
 static SUCCESS_COLOR: &str = "\x1b[32m";
 static RESET_COLOR: &str = "\x1b[0m";
 
-pub async fn srv_api(req: Request<Incoming>, address: SocketAddr) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
+pub async fn srv_api(req: Request<Incoming>, address: SocketAddr, router: Arc<Mutex<Router>>) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
     let path: Box<str> = req.uri().path().into();
     let method = req.method().clone();
     
-    let res = handle(req).await;
+    let res = handle(req, router).await;
     if let Err(err) = &res {
         let value = object! {
             ok: false,

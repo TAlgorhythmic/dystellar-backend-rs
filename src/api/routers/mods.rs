@@ -1,12 +1,12 @@
 use rayon::prelude::*;
-use std::{convert::Infallible, error::Error, fs::{self, DirEntry}, sync::Arc, thread};
+use std::{convert::Infallible, error::Error, fs::{self, DirEntry}, sync::Arc};
 
 use http_body_util::{BodyExt, Full, combinators::BoxBody};
 use hyper::{Request, Response, body::{Bytes, Incoming}, header::CONTENT_TYPE};
 use json::{object, stringify};
 use tokio::{sync::Mutex, task::spawn_blocking};
 
-use crate::api::{control::inotify::DirWatcher, routers::ROUTER, typedef::{BackendError, ModMetadata, routing::Method}};
+use crate::api::{control::inotify::DirWatcher, typedef::{BackendError, ModMetadata, routing::{Method, nodes::Router}}};
 
 fn generate_mod_registry() -> Result<Box<str>, Box<dyn Error + Send + Sync>> {
     println!("Generating mod registry...");
@@ -67,9 +67,7 @@ async fn manifest(_: Request<Incoming>, registry: Arc<Mutex<Box<str>>>) -> Resul
     )
 }
 
-pub async fn register() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut router = ROUTER.lock().await;
-    
+pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
     fs::create_dir_all("repository/mods/optional")?;
 
     let registry = Arc::new(Mutex::new(generate_mod_registry_async().await?));
@@ -103,10 +101,7 @@ pub async fn register() -> Result<(), Box<dyn Error + Send + Sync>> {
     mods_dir.listen();
     optional_mods_dir.listen();
 
-    router.endpoint(Method::Get,
-        "/api/mods/manifest",
-        Box::new(move |req| {Box::pin(manifest(req, registry.clone()))})
-    ).expect("Failed to register status endpoint");
+    router.endpoint(Method::Get, "/api/mods/manifest", move |req| manifest(req, registry.clone()))?;
 
     Ok(())
 }

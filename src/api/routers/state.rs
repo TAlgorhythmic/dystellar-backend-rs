@@ -4,7 +4,7 @@ use http_body_util::{combinators::BoxBody};
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use json::object;
 
-use crate::api::{control::inotify::DirWatcher, routers::ROUTER, typedef::{fs_json::{state::State, Config}, routing::Method, BackendError}, utils::response_json};
+use crate::api::{control::inotify::DirWatcher, typedef::{BackendError, fs_json::{Config, state::State}, routing::{Method, nodes::Router}}, utils::response_json};
 
 async fn launcher(_: Request<Incoming>, state: Arc<Mutex<State>>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let secure = state.lock().unwrap();
@@ -16,14 +16,10 @@ async fn launcher(_: Request<Incoming>, state: Arc<Mutex<State>>) -> Result<Resp
     }))
 }
 
-pub async fn register(watcher: &mut DirWatcher) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut router = ROUTER.lock().await;
+pub async fn register(router: &mut Router, watcher: &mut DirWatcher) -> Result<(), Box<dyn Error + Send + Sync>> {
     let state = State::open("state.json", watcher)?;
 
-    router.endpoint(Method::Get,
-        "/launcher",
-        Box::new(move |req| {Box::pin(launcher(req, state.clone()))})
-    ).expect("Failed to register status endpoint");
+    router.endpoint(Method::Get, "/launcher", move |req| launcher(req, state.clone()))?;
 
     Ok(())
 }

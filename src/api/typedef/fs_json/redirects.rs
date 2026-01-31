@@ -1,13 +1,42 @@
-use std::{fs, sync::{Arc, Mutex}};
+use std::{error::Error, fs, sync::{Arc, Mutex}};
 
 use json::JsonValue;
 
-use crate::api::{routers::ROUTER, typedef::routing::Method, utils::temporary_redirection};
+use crate::api::{control::inotify::DirWatcher, typedef::routing::Method, utils::temporary_redirection};
 
 use super::Config;
 
 pub struct Redirects {
     pub mappings: Arc<Mutex<Vec<(Box<str>, Arc<str>)>>>
+}
+
+impl Redirects {
+    fn open_redirs(path: &str, watcher: &mut DirWatcher) -> Result<Arc<Mutex<Self>>, Box<dyn Error + Send + Sync>> {
+        let mut conf = Self::default();
+
+        if conf.load_async(path).is_err() {
+            println!("{path} doesn't seem to exist, creating default config...");
+            if let Err(err) = conf.save(path) {
+                eprintln!("Failed to save file: {}", err.to_string());
+            }
+        }
+
+        let res = Arc::new(Mutex::new(conf));
+        let res_cl = res.clone();
+
+        println!("Registering watcher for {path}...");
+        watcher.watch(path, Box::new(move |path| {
+            println!("[{path}] Updating cache...");
+            let mut config = res_cl.lock().unwrap();
+            let s = config.load(path);
+
+            if s.is_err() {
+                println!("Failed to update config from {path}");
+            }
+        }), None);
+
+        Ok(res)
+    }
 }
 
 impl Config for Redirects {
@@ -56,14 +85,12 @@ impl Config for Redirects {
             let _ = router.endpoint(
                 Method::Get,
                 format!("/{key}").as_str(),
-                Box::new(move |_| {
-                    Box::pin({
-                        let url = val.clone();
-                        async move {
-                            Ok(temporary_redirection(&url))
-                        }
-                    })
-                })
+                move |_| {
+                    let url = val.clone();
+                    async move {
+                        Ok(temporary_redirection(&url))
+                    }
+                }
             );
         }
 

@@ -7,16 +7,14 @@ pub mod stream;
 pub mod redirections;
 pub mod mods;
 
-use std::{convert::Infallible, sync::{Arc, LazyLock}};
+use std::{convert::Infallible, sync::Arc};
 use hyper::{body::{Bytes, Incoming}, Request, Response};
 use http_body_util::combinators::BoxBody;
 use tokio::sync::Mutex;
-use crate::api::typedef::{routing::nodes::Router, BackendError};
+use crate::api::typedef::{BackendError, routing::nodes::Router};
 
-pub static ROUTER: LazyLock<Arc<Mutex<Router>>> = LazyLock::new(|| Arc::new(Mutex::new(Router::new())));
-
-pub async fn handle(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    let router = ROUTER.lock().await;
+pub async fn handle(req: Request<Incoming>, router: Arc<Mutex<Router>>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    let router = router.lock().await;
 
     if let Some(endpoint) = router.get_endpoint(req.uri().path(), req.method().as_str().into()) {
         let fut = endpoint.get_handler()(req);

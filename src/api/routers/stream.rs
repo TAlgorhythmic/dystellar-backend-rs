@@ -6,7 +6,7 @@ use hyper::{body::{Bytes, Frame, Incoming}, header::{CONTENT_DISPOSITION, CONTEN
 use tokio::fs::{try_exists, File};
 use tokio_util::io::ReaderStream;
 
-use crate::api::{routers::ROUTER, typedef::BackendError};
+use crate::api::typedef::{BackendError, routing::nodes::Router};
 
 async fn download(_: Request<Incoming>, path: String) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if try_exists(&path).await.map_err(|err| BackendError::new(err.to_string().as_str(), 500))? {
@@ -74,15 +74,13 @@ async fn serve(_: Request<Incoming>, mut path: String) -> Result<Response<BoxBod
     Err(BackendError::new("No such file or directory (os error 2)", 404))
 }
 
-pub async fn register() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut router = ROUTER.lock().await;
-
+pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Create dirs if missing
     let _ = fs::create_dir("repository");
     let _ = fs::create_dir("static");
 
-    router.map("repository", "/download", Box::new(|req, path| {Box::pin(download(req, path))}))?;
-    router.map("static", "/", Box::new(|req, path| {Box::pin(serve(req, path))}))?;
+    router.map("repository", "/download", download)?;
+    router.map("static", "/", serve)?;
 
     Ok(())
 }
