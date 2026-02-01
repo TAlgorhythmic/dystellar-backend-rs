@@ -1,18 +1,20 @@
-use std::{error::Error, fs, sync::{Arc, Mutex}};
+use std::{error::Error, fs, sync::Arc};
 
 use json::JsonValue;
+use tokio::sync::Mutex;
 
-use crate::api::{control::inotify::DirWatcher, typedef::routing::Method, utils::temporary_redirection};
+use crate::api::{control::inotify::DirWatcher, typedef::routing::{Method, nodes::Router}, utils::temporary_redirection};
 
 use super::Config;
 
 pub struct Redirects {
-    pub mappings: Arc<Mutex<Vec<(Box<str>, Arc<str>)>>>
+    pub mappings: Arc<Mutex<Vec<(Box<str>, Arc<str>)>>>,
+    pub router: Arc<Mutex<Router>>
 }
 
 impl Redirects {
-    fn open_redirs(path: &str, watcher: &mut DirWatcher) -> Result<Arc<Mutex<Self>>, Box<dyn Error + Send + Sync>> {
-        let mut conf = Self::default();
+    pub fn open_redirs(path: &str, watcher: &mut DirWatcher, router: Arc<Mutex<Router>>) -> Result<Arc<Mutex<Self>>, Box<dyn Error + Send + Sync>> {
+        let mut conf = Self::new(router);
 
         if conf.load_async(path).is_err() {
             println!("{path} doesn't seem to exist, creating default config...");
@@ -27,7 +29,7 @@ impl Redirects {
         println!("Registering watcher for {path}...");
         watcher.watch(path, Box::new(move |path| {
             println!("[{path}] Updating cache...");
-            let mut config = res_cl.lock().unwrap();
+            let mut config = res_cl.blocking_lock();
             let s = config.load(path);
 
             if s.is_err() {
@@ -37,16 +39,20 @@ impl Redirects {
 
         Ok(res)
     }
+
+    pub fn new(router: Arc<Mutex<Router>>) -> Self {
+        Self { mappings: Arc::new(Mutex::new(vec![])), router }
+    }
 }
 
 impl Config for Redirects {
     fn default() -> Self {
-        Self { mappings: Arc::new(Mutex::new(vec![])) }
+        Self { mappings: Arc::new(Mutex::new(vec![])), router: Arc::new(Mutex::new(Router::new())) }
     }
 
     fn to_json(&self) -> json::JsonValue {
         let mut json = JsonValue::new_object();
-        let mappings = self.mappings.lock().unwrap();
+        let mappings = self.mappings.blocking_lock();
 
         for (key, value) in &*mappings {
             json[key.as_ref()] = JsonValue::String(value.to_string());
@@ -56,8 +62,8 @@ impl Config for Redirects {
 
     fn load(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let path_cl: Box<str> = path.into();
-        let mut router = ROUTER.blocking_lock();
-        let mut mappings = self.mappings.lock().unwrap();
+        let mut router = self.router.blocking_lock();
+        let mut mappings = self.mappings.blocking_lock();
 
         for (key, _) in &*mappings {
             router.remove_endpoint(Method::Get, format!("/{key}").as_str());
