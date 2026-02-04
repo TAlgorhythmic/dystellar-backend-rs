@@ -167,11 +167,6 @@ pub fn get_user_connected(uuid: &str, name: &str, address: &str) -> Result<User,
     Ok(user)
 }
 
-pub fn put_user_disconnected(user: User) -> Result<(), BackendError> {
-    put_user(&user)?;
-    Ok(())
-}
-
 pub fn get_default_group_name() -> Result<Option<IVec>, BackendError> {
     let client = get_client();
 

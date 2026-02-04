@@ -5,7 +5,7 @@ use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
 use json::object;
 
-use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected, put_user_disconnected}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
+use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -94,7 +94,7 @@ async fn user_save(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Inf
     check_token(&req)?;
     let json = get_body_json(HttpTransaction::Req(req)).await?;
 
-    put_user_disconnected(User::from_json(&json)?)?;
+    put_user(&User::from_json(&json)?)?;
 
     Ok(response_json(object! { ok: true }))
 }
