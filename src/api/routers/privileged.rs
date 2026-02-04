@@ -3,17 +3,15 @@ use std::{convert::Infallible, error::Error};
 use chrono::DateTime;
 use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
+use json::object;
 
-use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected}, typedef::{BackendError, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
+use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected, put_user_disconnected}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
 
-fn check_token(transaction: &HttpTransaction) -> Result<(), BackendError> {
-    let http = match transaction {
-        HttpTransaction::Req(req) => req.headers().to_owned(),
-        HttpTransaction::Res(res) => res.headers().to_owned()
-    };
+fn check_token(req: &Request<Incoming>) -> Result<(), BackendError> {
+    let http = req.headers().to_owned();
 
     let header = http.get(AUTHORIZATION);
     if let Some(h) = header && h.to_str().unwrap() == TOKEN {
@@ -30,9 +28,8 @@ async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infall
     if ALLOWED_IP == req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
-    let transaction = HttpTransaction::Req(req);
-    check_token(&transaction)?;
-    let json = get_body_json(transaction).await?;
+    check_token(&req)?;
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
 
     let user_uuid = json["user_uuid"].as_str().ok_or(BackendError::new("user_uuid missing", 400))?;
     let r#type = json["type"].as_str().ok_or(BackendError::new("type missing", 400))?;
@@ -66,9 +63,7 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
 
     let args = get_body_url_args(&req).await?;
     let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid expected", 400))?;
-
-    let transaction = HttpTransaction::Req(req);
-    check_token(&transaction)?;
+    check_token(&req)?;
     
     let data = get_user(uuid)?.ok_or(BackendError::new("User not found", 404))?;
 
@@ -81,7 +76,7 @@ async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
     }
 
     let args = get_body_url_args(&req).await?;
-    check_token(&HttpTransaction::Req(req))?;
+    check_token(&req)?;
 
     let uuid = args.get("uuid").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
     let name = args.get("name").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
@@ -92,10 +87,23 @@ async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
     Ok(response_json(data.to_json()))
 }
 
+async fn user_save(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP == req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+
+    put_user_disconnected(User::from_json(&json)?)?;
+
+    Ok(response_json(object! { ok: true }))
+}
+
 pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
     router.endpoint(Method::Get, "/api/privileged/player_data", player_data)?;
-    router.endpoint(Method::Get, "/api/privileged/user_connected", player_data)?;
+    router.endpoint(Method::Get, "/api/privileged/user_connected", user_connected)?;
     router.endpoint(Method::Post, "/api/privileged/punish", punish)?;
+    router.endpoint(Method::Put, "/api/privileged/user_save", user_save)?;
 
     Ok(())
 }

@@ -3,7 +3,7 @@ use json::{JsonValue, object};
 use crate::api::typedef::{BackendError, jsonutils::SerializableJson};
 
 pub struct Permission {
-    pub permission: Box<str>,
+    pub perm: Box<str>,
     pub value: bool
 }
 
@@ -23,14 +23,14 @@ impl Group {
 impl SerializableJson for Permission {
     fn to_json(&self) -> json::JsonValue {
         object! {
-            permission: self.permission.as_ref(),
+            permission: self.perm.as_ref(),
             value: self.value
         }
     }
 
     fn from_json(json: &json::JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
         Ok(Self {
-            permission: json["permission"].as_str().ok_or(BackendError::new("permission.permission missing", 400))?.into(),
+            perm: json["permission"].as_str().ok_or(BackendError::new("permission.permission missing", 400))?.into(),
             value: json["value"].as_bool().ok_or(BackendError::new("permission.value missing", 400))?,
         })
     }

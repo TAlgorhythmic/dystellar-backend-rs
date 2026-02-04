@@ -10,16 +10,19 @@ use crate::api::typedef::mailing::{Mail, get_mails_from_json};
 use crate::api::typedef::permissions::{Group, Permission};
 use crate::api::typedef::punishment::Punishment;
 
-const PMS_ENABLED: u8 = 0;
-const PMS_ENABLED_FRIENDS_ONLY: u8 = 1;
-const PMS_DISABLED: u8 = 2;
+#[derive(Clone)]
+pub enum PmsMode {
+    PmsEnabled,
+    PmsEnabledFriendsOnly,
+    PmsDisabled
+}
 
 pub struct User {
     pub uuid: Box<str>,
     pub name: Box<str>,
     pub email: Option<Box<str>>,
     pub chat: bool,
-    pub pms: u8,
+    pub pms: PmsMode,
     pub suffix: Box<str>,
     pub lang: Box<str>,
     pub scoreboard: bool,
@@ -34,6 +37,16 @@ pub struct User {
     pub group: Option<Group>
 }
 
+impl From<u8> for PmsMode {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => PmsMode::PmsEnabledFriendsOnly,
+            2 => PmsMode::PmsDisabled,
+            _ => PmsMode::PmsEnabled
+        }
+    }
+}
+
 impl SerializableJson for User {
     fn to_json(&self) -> JsonValue {
         object! {
@@ -44,13 +57,13 @@ impl SerializableJson for User {
                 None => JsonValue::Null
             },
             chat: self.chat,
-            pms: self.pms,
+            pms: self.pms.clone() as u8,
             suffix: self.suffix.as_ref(),
             lang: self.lang.as_ref(),
             scoreboard: self.scoreboard,
             coins: self.coins,
             friend_reqs: self.friend_reqs,
-            created_at: self.created_at.to_string(),
+            created_at: self.created_at.timestamp_millis(),
             friends: JsonValue::Array(
                 self.friends
                     .iter()
@@ -79,12 +92,12 @@ impl SerializableJson for User {
         }
     }
 
-    fn from_json(json: &JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
+    fn from_json(json: &JsonValue) -> Result<Self, BackendError> where Self: Sized {
         let uuid: Box<str> = json["uuid"].as_str().ok_or(BackendError::new("Missing user.uuid", 400))?.into();
         let name: Box<str> = json["name"].as_str().ok_or(BackendError::new("Missing user.uuid", 400))?.into();
         let email: Option<Box<str>> = json["email"].as_str().map(|e| e.into());
         let chat: bool = json["chat"].as_bool().unwrap_or(true);
-        let pms: u8 = json["pms"].as_u8().unwrap_or(PMS_ENABLED);
+        let pms: PmsMode = json["pms"].as_u8().unwrap_or(PmsMode::PmsEnabled as u8).into();
         let suffix: Box<str> = json["suffix"].as_str().ok_or(BackendError::new("Missing user.suffix", 400))?.into();
         let lang: Box<str> = json["lang"].as_str().ok_or(BackendError::new("Missing user.lang", 400))?.into();
         let scoreboard: bool = json["scoreboard"].as_bool().unwrap_or(true);
@@ -114,7 +127,7 @@ impl User {
             uuid: self.uuid.as_ref(),
             name: self.name.as_ref(),
             suffix: self.suffix.as_ref(),
-            created_at: self.created_at.to_string(),
+            created_at: self.created_at.timestamp_millis(),
             punishments: array![self.punishments.iter().map(|pun| pun.to_json()).collect::<Vec<JsonValue>>()],
             group: group_name
         }
@@ -137,7 +150,7 @@ impl User {
         
 
         Self {
-            uuid: uuid.into(), name: name.into(), email: None, chat: true, pms: PMS_ENABLED,
+            uuid: uuid.into(), name: name.into(), email: None, chat: true, pms: PmsMode::PmsEnabled,
             suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true,
             created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], punishments: vec![], perms: vec![], group: group_default
         }

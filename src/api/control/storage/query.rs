@@ -15,19 +15,18 @@ static GROUPS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open
 static PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("punishments").expect("Failed to open 'punishments' tree")));
 static IP_PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("ip_punishments").expect("Failed to open 'ip_punishments' tree")));
 
-pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
+pub fn put_user(user: &User) -> Result<(), BackendError> {
     let tree = USERS.clone();
 
-    let user = User::new_default(uuid, name);
-    let ref user_ref = user;
     tree.transaction(move |tree| {
-        let user = user_ref;
+        let user = user;
+        let uuid = user.uuid.as_ref();
 
         tree.insert(format!("{uuid}:name").as_bytes(), &*user.name)?;
         tree.insert(format!("{uuid}:suffix").as_bytes(), &*user.suffix)?;
         tree.insert(format!("{uuid}:lang").as_bytes(), &*user.lang)?;
         tree.insert(format!("{uuid}:chat").as_bytes(), &[user.chat as u8])?;
-        tree.insert(format!("{uuid}:pms").as_bytes(), &[user.pms])?;
+        tree.insert(format!("{uuid}:pms").as_bytes(), &[user.pms.clone() as u8])?;
         tree.insert(format!("{uuid}:scoreboard").as_bytes(), &[user.scoreboard as u8])?;
         tree.insert(format!("{uuid}:coins").as_bytes(), &user.coins.to_be_bytes())?;
         tree.insert(format!("{uuid}:friend_reqs").as_bytes(), &[user.friend_reqs as u8])?;
@@ -42,7 +41,7 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
             pun_tree.insert(pun.id.to_be_bytes(), stringify(pun.to_json()).as_bytes())?;
         }
         for perm in &user.perms {
-            tree.insert(format!("{uuid}:permissions:{}", perm.permission).as_bytes(), &[perm.value as u8])?;
+            tree.insert(format!("{uuid}:permissions:{}", perm.perm).as_bytes(), &[perm.value as u8])?;
         }
         if let Some(group) = &user.group {
             tree.insert(format!("{uuid}:group").as_bytes(), group.name.as_bytes())?;
@@ -54,7 +53,13 @@ pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
 
         Ok::<(), ConflictableTransactionError>(())
     })?;
+    Ok(())
+}
 
+pub fn create_new_player(uuid: &str, name: &str) -> Result<User, BackendError> {
+    let user = User::new_default(uuid, name);
+
+    put_user(&user)?;
     Ok(user)
 }
 
@@ -162,6 +167,11 @@ pub fn get_user_connected(uuid: &str, name: &str, address: &str) -> Result<User,
     Ok(user)
 }
 
+pub fn put_user_disconnected(user: User) -> Result<(), BackendError> {
+    put_user(&user)?;
+    Ok(())
+}
+
 pub fn get_default_group_name() -> Result<Option<IVec>, BackendError> {
     let client = get_client();
 
@@ -194,7 +204,7 @@ pub fn get_group_full(name: &str) -> Result<Option<Group>, BackendError> {
 
     for key in tree.scan_prefix(format!("{name}:permissions:")) {
         let (perm, value) = key?;
-        perms.push(Permission { permission: from_utf8(&perm)?.into(), value: value[0] != 0 });
+        perms.push(Permission { perm: from_utf8(&perm)?.into(), value: value[0] != 0 });
     }
 
     Ok(Some(Group {
@@ -261,7 +271,7 @@ fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>,
     let prefix = format!("{uuid}:permissions:");
     for perm in tree.scan_prefix(&prefix) {
         let (key, value) = perm?;
-        perms.push(Permission { permission: from_utf8(&key[prefix.len()..])?.into(), value: value[0] != 0 });
+        perms.push(Permission { perm: from_utf8(&key[prefix.len()..])?.into(), value: value[0] != 0 });
     }
 
     Ok(perms)
@@ -321,7 +331,7 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
         uuid: uuid.into(),
         name: name.into(),
         email: email.map(|em| from_utf8(&em).unwrap().into()),
-        chat, pms,
+        chat, pms: pms.into(),
         suffix: suffix.into(),
         lang: lang.into(),
         scoreboard, coins, friend_reqs,
