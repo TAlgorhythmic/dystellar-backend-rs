@@ -1,4 +1,4 @@
-use std::{str::from_utf8, sync::{Arc, LazyLock}};
+use std::{collections::HashSet, str::from_utf8, sync::{Arc, LazyLock}};
 
 use chrono::{DateTime, Utc};
 use json::stringify;
@@ -208,6 +208,23 @@ pub fn get_group_full(name: &str) -> Result<Option<Group>, BackendError> {
         suffix: from_utf8(&suffix)?.into(),
         perms,
     }))
+}
+
+pub fn get_all_groups_full() -> Result<Vec<Group>, BackendError> {
+    let tree = GROUPS.clone();
+    let mut set: HashSet<Box<str>> = HashSet::new();
+    let mut res = vec![];
+
+    for entry in tree.iter() {
+        let (key, _) = entry?;
+
+        set.insert(from_utf8(&key)?.into());
+    }
+
+    for name in set {
+        res.push(get_group_full(&name)?.ok_or(BackendError::new("Error", 500))?);
+    }
+    Ok(res)
 }
 
 fn get_friends(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, BackendError> {

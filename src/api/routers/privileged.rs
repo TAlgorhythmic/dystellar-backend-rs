@@ -1,11 +1,11 @@
-use std::{convert::Infallible, error::Error};
+use std::{convert::Infallible, error::Error, str::from_utf8};
 
 use chrono::DateTime;
 use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
-use json::object;
+use json::{JsonValue, object};
 
-use crate::api::{control::storage::query::{create_punishment, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
+use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -99,11 +99,30 @@ async fn user_save(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Inf
     Ok(response_json(object! { ok: true }))
 }
 
+async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP == req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+
+    let default_group = get_default_group_name()?;
+
+    if let Some(g) = default_group {
+        Ok(response_json(object! {
+            default_group: from_utf8(&g)?,
+            groups: JsonValue::Array(get_all_groups_full()?.iter().map(|g| g.to_json()).collect())
+        }))
+    } else {
+        Ok(response_json(object! { groups: JsonValue::Array(get_all_groups_full()?.iter().map(|g| g.to_json()).collect()) }))
+    }
+}
+
 pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
     router.endpoint(Method::Get, "/api/privileged/player_data", player_data)?;
     router.endpoint(Method::Get, "/api/privileged/user_connected", user_connected)?;
     router.endpoint(Method::Post, "/api/privileged/punish", punish)?;
     router.endpoint(Method::Put, "/api/privileged/user_save", user_save)?;
+    router.endpoint(Method::Put, "/api/privileged/get_groups", get_groups)?;
 
     Ok(())
 }
