@@ -123,7 +123,7 @@ async fn login_existing(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
 */
 async fn login(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let pend = &PENDING;
-    let args = get_body_url_args(&req).await?;
+    let args = get_body_url_args(&req)?;
 
     let arg = args.get("uuid");
     if arg.is_none() {
@@ -185,7 +185,7 @@ async fn login(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infalli
 * if no errors it will return a generic message saying that everything is okay
 */
 async fn callback(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    let args = get_body_url_args(&req).await?;
+    let args = get_body_url_args(&req)?;
 
     let arg0 = args.get("code");
     let arg1 = args.get("state");

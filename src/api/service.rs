@@ -19,7 +19,7 @@ static RESET_COLOR: &str = "\x1b[0m";
 pub async fn srv_api(req: Request<Incoming>, address: SocketAddr, router: Arc<Mutex<Router>>) -> Result<Response<BoxBody<Bytes, Infallible>>, Infallible> {
     let path: Box<str> = req.uri().path().into();
     let method = req.method().clone();
-    
+
     let res = handle(req, router).await;
     if let Err(err) = &res {
         let value = object! {

@@ -15,7 +15,7 @@ pub static TOKENS: LazyLock<Arc<Mutex<HashMap<Box<str>, (Box<str>, DateTime<Utc>
 * Returns an error if an invalid token is provided.
 */
 async fn get(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    let args = get_body_url_args(&req).await?;
+    let args = get_body_url_args(&req)?;
     let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid param is required", 400))?;
     let user = get_user(uuid.as_ref()).map_err(|_| BackendError::new("Failed to get user", 500))?
         .ok_or(BackendError::new("This user does not exist", 404))?;

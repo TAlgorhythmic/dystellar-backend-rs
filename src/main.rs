@@ -63,7 +63,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let router = router.clone();
                 srv_api(req, addr, router)
             });
-            let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection(io, service_api).await;
+            let res = hyper_util::server::conn::auto::Builder::new(Exec).serve_connection_with_upgrades(io, service_api).await;
 
             if res.is_err() {
                 eprintln!("Error serving connection: {}", res.err().unwrap().to_string());

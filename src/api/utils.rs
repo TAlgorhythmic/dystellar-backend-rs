@@ -48,7 +48,7 @@ pub async fn get_body_str(http: HttpTransaction) -> Result<String, BackendError>
     Ok(str)
 }
 
-pub async fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, BackendError> {
+pub fn get_body_url_args(req: &Request<Incoming>) -> Result<HashMap<Box<str>, Box<str>>, BackendError> {
     let mut map: HashMap<Box<str>, Box<str>> = HashMap::new();
 
     let bodyopt = req.uri().query();

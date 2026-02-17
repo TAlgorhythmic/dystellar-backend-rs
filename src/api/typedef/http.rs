@@ -1,6 +1,7 @@
-use std::{error::Error, fmt::Display, num::ParseIntError, str::Utf8Error};
+use std::{error::Error, fmt::Display, num::ParseIntError, str::Utf8Error, string::FromUtf8Error};
 
 use sled::transaction::TransactionError;
+use tungstenite::error::ProtocolError;
 
 #[derive(Debug)]
 pub struct BackendError {
@@ -28,6 +29,32 @@ impl Display for BackendError {
 }
 
 impl Error for BackendError {}
+
+impl From<std::io::Error> for BackendError {
+    fn from(value: std::io::Error) -> Self {
+        let string = value.to_string();
+        println!("IO Error: {}", string);
+
+        Self { msg: string.into_boxed_str(), status: 500 }
+    }
+}
+
+impl From<&str> for BackendError {
+    fn from(value: &str) -> Self {
+        println!("Error: {}", value);
+
+        Self { msg: value.into(), status: 500 }
+    }
+}
+
+impl From<FromUtf8Error> for BackendError {
+    fn from(value: FromUtf8Error) -> Self {
+        let string = value.to_string();
+        println!("FromUtf8Error: {}", string);
+
+        Self { msg: string.into_boxed_str(), status: 500 }
+    }
+}
 
 impl From<sled::Error> for BackendError {
     fn from(value: sled::Error) -> Self {
@@ -72,5 +99,23 @@ impl From<Utf8Error> for BackendError {
         println!("Error from utf8 parsing: {}", value.to_string());
 
         Self { msg: "Internal Error".into(), status: 500 }
+    }
+}
+
+impl From<ProtocolError> for BackendError {
+    fn from(value: ProtocolError) -> Self {
+        let string = value.to_string();
+        println!("ProtocolError: {}", string);
+
+        Self { msg: string.into_boxed_str(), status: 500 }
+    }
+}
+
+impl From<tungstenite::Error> for BackendError {
+    fn from(value: tungstenite::Error) -> Self {
+        let string = value.to_string();
+        println!("Tungstenite error: {}", value.to_string());
+
+        Self { msg: string.into_boxed_str(), status: 500 }
     }
 }
