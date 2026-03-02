@@ -1,36 +1,44 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::Message;
 
 use crate::api::typedef::BackendError;
 
-/**
-* Read NUL-terminated string from AsyncRead implementation
-*/
-pub fn read_string(reader: &mut (impl Read + Unpin)) -> Result<String, BackendError> {
-    const MAX_LEN: usize = 1024;
+pub fn read_prefixed_string(reader: &mut (impl Read + Unpin)) -> Result<String, BackendError> {
+    let mut len_buf = [0u8; 2];
+    reader.read_exact(&mut len_buf)?;
+    let len = u16::from_be_bytes(len_buf);
+    let mut res = vec![0u8; len as usize];
 
-    let mut data = [0u8; 1];
-    let mut res = vec![];
-    loop {
-        reader.read_exact(&mut data)?;
-        if data[0] == 0 {
-            break;
-        }
-        res.push(data[0]);
-
-        if res.len() > MAX_LEN { return Err("String is way too large (1024+ bytes)".into()); }
-    }
+    reader.read_exact(&mut res)?;
 
     Ok(String::from_utf8(res)?)
+}
+
+pub fn write_prefixed_string(s: &str, writer: &mut (impl Write + Unpin)) -> Result<(), BackendError> {
+    const MAX_LEN: usize = 1024;
+
+    let bytes = s.as_bytes();
+    if bytes.len() > MAX_LEN { return Err("String is way too large (1024+ bytes)".into()); }
+
+    writer.write_all(&(bytes.len() as u16).to_be_bytes())?;
+    writer.write_all(bytes)?;
+
+    Ok(())
+}
+
+pub fn write_prefixed_string_bytebuf(s: &str, writer: &mut BytesMut) {
+    let bytes = s.as_bytes();
+
+    writer.put_slice(&(bytes.len() as u16).to_be_bytes());
+    writer.put_slice(bytes);
 }
 
 pub fn encode_msg(source: &str, reader: &mut (impl Read + Unpin)) -> Result<Message, BackendError> {
     let mut bytebuf = BytesMut::new();
 
-    bytebuf.put_slice(source.as_bytes());
-    bytebuf.put_u8(0);
+    write_prefixed_string_bytebuf(source, &mut bytebuf);
 
     let mut buf = [0u8; 2048];
     while let rd = reader.read(&mut buf)? && rd > 0 {

@@ -9,7 +9,7 @@ use json::{JsonValue, object};
 use tokio::sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
-use crate::api::control::ioutils::{encode_msg, read_string};
+use crate::api::control::ioutils::{encode_msg, read_prefixed_string};
 use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
@@ -129,7 +129,7 @@ async fn process_msg_bytes(b: tungstenite::Bytes, clients: Arc<Mutex<HashMap<Box
     let mut reader = b.reader();
     let mut buf = [0u8; 1];
     reader.read_exact(&mut buf)?;
-    let source = read_string(&mut reader)?.into_boxed_str();
+    let source = read_prefixed_string(&mut reader)?.into_boxed_str();
 
     let packet_type = buf[0];
     let safe = clients.lock().await;
@@ -143,7 +143,7 @@ async fn process_msg_bytes(b: tungstenite::Bytes, clients: Arc<Mutex<HashMap<Box
             }
         },
         TARGET => {
-            let name = read_string(&mut reader)?.into_boxed_str();
+            let name = read_prefixed_string(&mut reader)?.into_boxed_str();
             if let Some(client) = safe.get(&name) {
                 client.send(encode_msg(&source, &mut reader)?).map_err(|e| BackendError::new(&e.to_string(), 500))?
             }
