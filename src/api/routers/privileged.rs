@@ -1,15 +1,15 @@
 use std::{collections::HashMap, convert::Infallible, error::Error, str::from_utf8, sync::Arc};
 
-use std::io::Read;
 use chrono::DateTime;
 use futures::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Version, body::{Buf, Bytes, Incoming}, header::AUTHORIZATION};
 use json::{JsonValue, object};
 use tokio::sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}};
+use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
-use crate::api::control::ioutils::{encode_msg, read_prefixed_string};
+use crate::api::{control::ioutils::{encode_msg, read_prefixed_string}, typedef::CacheData};
 use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
@@ -124,36 +124,80 @@ async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, In
 
 const PROPAGATE: u8 = 0;
 const TARGET: u8 = 1;
+const CACHE_READ: u8 = 2;
+const CACHE_WRITE: u8 = 3;
 
-async fn process_msg_bytes(b: tungstenite::Bytes, clients: Arc<Mutex<HashMap<Box<str>, UnboundedSender<Message>>>>) -> Result<(), BackendError> {
-    let mut reader = b.reader();
-    let mut buf = [0u8; 1];
-    reader.read_exact(&mut buf)?;
-    let source = read_prefixed_string(&mut reader)?.into_boxed_str();
+pub const REGULAR_MESSAGE: u8 = 0;
+pub const CACHE_RESPONSE: u8 = 1;
 
-    let packet_type = buf[0];
+async fn process_msg_bytes(
+    mut b: tungstenite::Bytes,
+    clients: Arc<Mutex<HashMap<Box<str>,
+    UnboundedSender<Message>>>>,
+    cache: Arc<Mutex<HashMap<i32, CacheData>>>,
+    sender: UnboundedSender<Message>
+) -> Result<(), BackendError> {
+    let packet_type = b.get_u8();
+    let source = read_prefixed_string(&mut b)?.into_boxed_str();
+
     let safe = clients.lock().await;
     match packet_type {
         PROPAGATE => {
             for c in safe.iter() {
                 let (key, client) = c;
                 if *key != source {
-                    client.send(encode_msg(&source, &mut reader)?).map_err(|e| BackendError::new(&e.to_string(), 500))?
+                    client.send(encode_msg(&source, &mut b)?).map_err(|e| BackendError::new(&e.to_string(), 500))?;
                 }
             }
         },
         TARGET => {
-            let name = read_prefixed_string(&mut reader)?.into_boxed_str();
+            let name = read_prefixed_string(&mut b)?.into_boxed_str();
             if let Some(client) = safe.get(&name) {
-                client.send(encode_msg(&source, &mut reader)?).map_err(|e| BackendError::new(&e.to_string(), 500))?
+                client.send(encode_msg(&source, &mut b)?).map_err(|e| BackendError::new(&e.to_string(), 500))?;
             }
+        },
+        CACHE_READ => {
+            let cache_id = b.get_i32();
+            let channel = read_prefixed_string(&mut b)?.into_boxed_str();
+            let map = cache.lock().await;
+            let mut response: BytesMut;
+
+            if let Some(cache) = map.get(&cache_id) && cache.channel == channel {
+                response = BytesMut::with_capacity(6 + cache.payload.len());
+                response.put_u8(CACHE_RESPONSE);
+                response.put_i32(cache_id);
+                response.put_u8(1); // true
+                response.extend_from_slice(&cache.payload);
+            } else {
+                response = BytesMut::with_capacity(6);
+                response.put_u8(CACHE_RESPONSE);
+                response.put_i32(cache_id);
+                response.put_u8(0); // false
+            }
+
+            sender.send(Message::Binary(response.freeze())).map_err(|e| BackendError::new(&e.to_string(), 500))?;
+        },
+        CACHE_WRITE => {
+            let source = read_prefixed_string(&mut b)?;
+            let cache_id = b.get_i32();
+            let channel = read_prefixed_string(&mut b)?;
+            let mut map = cache.lock().await;
+            let mut data = BytesMut::with_capacity(32);
+            data.extend_from_slice(&b);
+
+            map.insert(cache_id, CacheData { payload: data.freeze(), owner: source.into_boxed_str(), channel: channel.into_boxed_str() });
         },
         _ => {}
     };
     Ok(())
 }
 
-async fn create_ws(req: Request<Incoming>, clients: Arc<Mutex<HashMap<Box<str>, UnboundedSender<Message>>>>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+async fn create_ws(
+    req: Request<Incoming>,
+    clients: Arc<Mutex<HashMap<Box<str>,
+    UnboundedSender<Message>>>>,
+    cache: Arc<Mutex<HashMap<i32, CacheData>>>
+) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if ALLOWED_IP != req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
@@ -174,7 +218,7 @@ async fn create_ws(req: Request<Incoming>, clients: Arc<Mutex<HashMap<Box<str>, 
     if safe.contains_key(&name.clone()) {
         return Err(BackendError::new("A client with that name already exists", 400));
     }
-    safe.insert(name.clone(), tx);
+    safe.insert(name.clone(), tx.clone());
 
     drop(safe);
 
@@ -195,18 +239,28 @@ async fn create_ws(req: Request<Incoming>, clients: Arc<Mutex<HashMap<Box<str>, 
             while let Some(msg) = reader.next().await {
                 match msg {
                     Ok(Message::Binary(b)) => {
-                        if let Err(e) = process_msg_bytes(b, clients.clone()).await {
+                        if let Err(e) = process_msg_bytes(b, clients.clone(), cache.clone(), tx.clone()).await {
                             eprintln!("Failed to process websocket packet from {}: {}", name, e.get_msg());
                         }
                     },
-                    Ok(Message::Close(_)) => { break; },
+                    Ok(Message::Close(_)) => {
+                        drop(reader);
+                        break;
+                    },
                     Err(e) => {
                         eprintln!("A client ended a websocket abruptly: {}", e.to_string());
+                        drop(reader);
                         break;
                     },
                     _ => {}
                 }
             }
+
+            // Cleanup
+            let mut caches = cache.lock().await;
+            caches.retain(|_, data| data.owner == name);
+            drop(caches);
+
             let mut safe = clients.lock().await;
             safe.remove(&name);
         }
@@ -223,7 +277,8 @@ pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + 
     router.endpoint(Method::Put, "/api/privileged/get_groups", get_groups)?;
 
     let clients = Arc::new(Mutex::new(HashMap::new()));
-    router.endpoint(Method::Get, "/api/privileged/create_ws", move |req| create_ws(req, clients.clone()))?;
+    let bytes = Arc::new(Mutex::new(HashMap::new()));
+    router.endpoint(Method::Get, "/api/privileged/create_ws", move |req| create_ws(req, clients.clone(), bytes.clone()))?;
 
     Ok(())
 }

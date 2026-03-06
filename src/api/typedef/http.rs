@@ -119,3 +119,9 @@ impl From<tungstenite::Error> for BackendError {
         Self { msg: string.into_boxed_str(), status: 500 }
     }
 }
+
+pub struct CacheData {
+    pub payload: hyper::body::Bytes,
+    pub owner: Box<str>,
+    pub channel: Box<str>
+}

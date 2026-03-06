@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::Infallible};
+use std::{collections::HashMap, convert::Infallible, time::{SystemTime, UNIX_EPOCH}};
 
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::{body::{Bytes, Incoming}, header::{CONTENT_TYPE, LOCATION}, Request, Response};
@@ -85,4 +85,9 @@ pub fn temporary_redirection(url: &str) -> Response<BoxBody<Bytes, Infallible>> 
         .header(LOCATION, url)
         .body(empty().boxed())
         .unwrap()
+}
+
+pub fn unsafe_random_i32() -> i32 {
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().subsec_nanos();
+    nanos.wrapping_mul(1664525).wrapping_add(1013904223) as i32
 }

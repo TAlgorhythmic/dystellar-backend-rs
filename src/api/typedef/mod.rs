@@ -16,6 +16,7 @@ pub use microsoft::XboxLiveTokensData;
 pub use microsoft::MicrosoftTokens;
 pub use microsoft::XstsData;
 pub use http::BackendError;
+pub use http::CacheData;
 
 use json::JsonValue;
 use std::path::Path;

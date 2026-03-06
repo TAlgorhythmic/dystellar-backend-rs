@@ -1,49 +1,30 @@
-use std::io::{Read, Write};
-
+use hyper::body::Buf;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::Message;
 
-use crate::api::typedef::BackendError;
+use crate::api::{routers::privileged::REGULAR_MESSAGE, typedef::BackendError};
 
-pub fn read_prefixed_string(reader: &mut (impl Read + Unpin)) -> Result<String, BackendError> {
-    let mut len_buf = [0u8; 2];
-    reader.read_exact(&mut len_buf)?;
-    let len = u16::from_be_bytes(len_buf);
+pub fn read_prefixed_string(b: &mut tungstenite::Bytes) -> Result<String, BackendError> {
+    let len = b.get_u16();
     let mut res = vec![0u8; len as usize];
-
-    reader.read_exact(&mut res)?;
+    b.copy_to_slice(&mut res);
 
     Ok(String::from_utf8(res)?)
 }
 
-pub fn write_prefixed_string(s: &str, writer: &mut (impl Write + Unpin)) -> Result<(), BackendError> {
-    const MAX_LEN: usize = 1024;
-
-    let bytes = s.as_bytes();
-    if bytes.len() > MAX_LEN { return Err("String is way too large (1024+ bytes)".into()); }
-
-    writer.write_all(&(bytes.len() as u16).to_be_bytes())?;
-    writer.write_all(bytes)?;
-
-    Ok(())
-}
-
-pub fn write_prefixed_string_bytebuf(s: &str, writer: &mut BytesMut) {
+pub fn write_prefixed_string(s: &str, writer: &mut BytesMut) {
     let bytes = s.as_bytes();
 
     writer.put_slice(&(bytes.len() as u16).to_be_bytes());
     writer.put_slice(bytes);
 }
 
-pub fn encode_msg(source: &str, reader: &mut (impl Read + Unpin)) -> Result<Message, BackendError> {
-    let mut bytebuf = BytesMut::new();
+pub fn encode_msg(source: &str, reader: &mut tungstenite::Bytes) -> Result<Message, BackendError> {
+    let mut bytebuf = BytesMut::with_capacity(source.len() + 2 + reader.remaining());
 
-    write_prefixed_string_bytebuf(source, &mut bytebuf);
-
-    let mut buf = [0u8; 2048];
-    while let rd = reader.read(&mut buf)? && rd > 0 {
-        bytebuf.put_slice(&mut buf[..rd]);
-    }
+    bytebuf.put_u8(REGULAR_MESSAGE);
+    write_prefixed_string(source, &mut bytebuf);
+    bytebuf.extend_from_slice(reader);
 
     Ok(Message::Binary(bytebuf.freeze()))
 }
