@@ -17,6 +17,11 @@ pub enum PmsMode {
     PmsDisabled
 }
 
+pub struct UserMapping {
+    pub uuid: Box<str>,
+    pub name: Box<str>
+}
+
 pub struct User {
     pub uuid: Box<str>,
     pub name: Box<str>,
@@ -29,8 +34,8 @@ pub struct User {
     pub coins: u64,
     pub friend_reqs: bool,
     pub created_at: DateTime<Utc>,
-    pub friends: Vec<Box<str>>,
-    pub ignores: Vec<Box<str>>,
+    pub friends: Vec<UserMapping>,
+    pub ignores: Vec<UserMapping>,
     pub inbox: Vec<Box<dyn Mail>>,
     pub punishments: Vec<Punishment>,
     pub perms: Vec<Permission>,
@@ -44,6 +49,22 @@ impl From<u8> for PmsMode {
             2 => PmsMode::PmsDisabled,
             _ => PmsMode::PmsEnabled
         }
+    }
+}
+
+impl SerializableJson for UserMapping {
+    fn to_json(&self) -> JsonValue {
+        object! {
+            uuid: self.uuid.as_ref(),
+            name: self.name.as_ref()
+        }
+    }
+
+    fn from_json(json: &JsonValue) -> Result<Self, BackendError> where Self: Sized {
+        let uuid = json["uuid"].as_str().ok_or(BackendError::new("uuid missing", 500))?;
+        let name = json["name"].as_str().ok_or(BackendError::new("uuid missing", 500))?;
+
+        Ok(Self { uuid: uuid.into(), name: name.into() })
     }
 }
 
@@ -67,12 +88,12 @@ impl SerializableJson for User {
             friends: JsonValue::Array(
                 self.friends
                     .iter()
-                    .map(|friend| friend.as_ref().into()).collect()
+                    .map(|friend| friend.to_json()).collect()
             ),
             ignores: JsonValue::Array(
                 self.ignores
                     .iter()
-                    .map(|ignore| ignore.as_ref().into()).collect()
+                    .map(|ignore| ignore.to_json()).collect()
             ),
             inbox: JsonValue::Array(
                 self.inbox
@@ -104,8 +125,8 @@ impl SerializableJson for User {
         let coins: u64 = json["coins"].as_u64().ok_or(BackendError::new("Missing user.coins", 400))?;
         let friend_reqs: bool = json["friend_reqs"].as_bool().unwrap_or(true);
         let created_at: u64 = json["created_at"].as_u64().ok_or(BackendError::new("Missing user.created_at", 400))?;
-        let friends: Vec<Box<str>> = json["friends"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
-        let ignores: Vec<Box<str>> = json["ignores"].members().filter_map(|m| m.as_str().map(|m| m.into())).collect();
+        let friends: Vec<UserMapping> = json["friends"].members().filter_map(|m| UserMapping::from_json(&m).ok()).collect();
+        let ignores: Vec<UserMapping> = json["ignores"].members().filter_map(|m| UserMapping::from_json(&m).ok()).collect();
         let inbox: Vec<Box<dyn Mail>> = get_mails_from_json(&json["inbox"]);
         let punishments: Vec<Punishment> = json["punishments"].members().filter_map(|json| Punishment::from_json(json).ok()).collect();
         let perms: Vec<Permission> = json["perms"].members().filter_map(|json| Permission::from_json(json).ok()).collect();

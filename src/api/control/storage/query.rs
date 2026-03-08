@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use json::stringify;
 use sled::{IVec, Tree, transaction::ConflictableTransactionError};
 
-use crate::api::{encoder::{decode_datetime, encode_datetime}, typedef::{BackendError, User, jsonutils::SerializableJson, mailing::{Mail, get_json_from_mails, get_mails_from_json}, permissions::{Group, Permission}, punishment::Punishment}};
+use crate::api::{encoder::{decode_datetime, encode_datetime}, typedef::{BackendError, User, UserMapping, jsonutils::SerializableJson, mailing::{Mail, get_json_from_mails, get_mails_from_json}, permissions::{Group, Permission}, punishment::Punishment}};
 use super::setup::get_client;
 
 // Trees
@@ -32,7 +32,7 @@ pub fn put_user(user: &User) -> Result<(), BackendError> {
         tree.insert(format!("{uuid}:friend_reqs").as_bytes(), &[user.friend_reqs as u8])?;
         tree.insert(format!("{uuid}:created_at").as_bytes(), &encode_datetime(user.created_at))?;
         for friend in &user.friends {
-            tree.insert(format!("{uuid}:friends:{friend}").as_bytes(), friend.as_bytes())?;
+            tree.insert(format!("{uuid}:friends:{}", friend.uuid).as_bytes(), friend.uuid.as_bytes())?;
         }
 
         let pun_tree = PUNISHMENTS.clone();
@@ -48,7 +48,7 @@ pub fn put_user(user: &User) -> Result<(), BackendError> {
         }
         tree.insert(format!("{uuid}:mails").as_bytes(), stringify(get_json_from_mails(&user.inbox)).as_bytes())?;
         for ignored in &user.ignores {
-            tree.insert(format!("{uuid}:ignores:{ignored}").as_bytes(), ignored.as_bytes())?;
+            tree.insert(format!("{uuid}:ignores:{}", ignored.uuid).as_bytes(), ignored.uuid.as_bytes())?;
         }
 
         Ok::<(), ConflictableTransactionError>(())
@@ -227,13 +227,13 @@ pub fn get_all_groups_full() -> Result<Vec<Group>, BackendError> {
     Ok(res)
 }
 
-fn get_friends(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, BackendError> {
-    let mut friends: Vec<Box<str>> = vec![];
+fn get_friends(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<UserMapping>, BackendError> {
+    let mut friends: Vec<UserMapping> = vec![];
 
     for friend in tree.scan_prefix(format!("{uuid}:friends:")) {
         let (_, value) = friend?;
-        if let Ok(f) = from_utf8(&value) {
-            friends.push(f.into());
+        if let Ok(id) = from_utf8(&value) && let Some(n) = tree.get(format!("{id}:name"))? && let Ok(name) = from_utf8(&n) {
+            friends.push(UserMapping { uuid: id.into(), name: name.into() });
         }
     }
 
@@ -253,13 +253,13 @@ fn get_group_from_opt(mut name_opt: Option<IVec>) -> Result<Option<Group>, Backe
     get_group_full(from_utf8(&name)?)
 }
 
-fn get_ignores(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Box<str>>, BackendError> {
-    let mut ignores: Vec<Box<str>> = vec![];
+fn get_ignores(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<UserMapping>, BackendError> {
+    let mut ignores: Vec<UserMapping> = vec![];
 
     for ignore in tree.scan_prefix(format!("{uuid}:ignores:")) {
         let (_, value) = ignore?;
-        if let Ok(ig) = from_utf8(&value) {
-            ignores.push(ig.into());
+        if let Ok(id) = from_utf8(&value) && let Some(n) = tree.get(format!("{id}:name"))? && let Ok(name) = from_utf8(&n) {
+            ignores.push(UserMapping { uuid: id.into(), name: name.into() });
         }
     }
 
@@ -332,8 +332,8 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
     } else { 0 };
     let friend_reqs = tree.get(format!("{uuid}:friend_reqs"))?.unwrap_or("1".into())[0] != 0;
     let created_at = decode_datetime(&*tree.get(format!("{uuid}:created_at"))?.unwrap())?;
-    let friends: Vec<Box<str>> = get_friends(uuid, &tree)?;
-    let ignores: Vec<Box<str>> = get_ignores(uuid, &tree)?;
+    let friends: Vec<UserMapping> = get_friends(uuid, &tree)?;
+    let ignores: Vec<UserMapping> = get_ignores(uuid, &tree)?;
     let inbox: Vec<Box<dyn Mail>> = get_user_mails(uuid, &tree)?;
     let punishments = get_user_punishments(uuid)?;
     let perms: Vec<Permission> = get_user_permissions(uuid, &tree)?;

@@ -1,11 +1,11 @@
-use std::{collections::HashMap, convert::Infallible, error::Error, str::from_utf8, sync::Arc};
+use std::{collections::HashMap, convert::Infallible, error::Error, str::from_utf8, sync::Arc, time::Duration};
 
 use chrono::DateTime;
 use futures::{SinkExt, StreamExt};
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Version, body::{Buf, Bytes, Incoming}, header::AUTHORIZATION};
 use json::{JsonValue, object};
-use tokio::sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}};
+use tokio::{sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}}, task::JoinHandle};
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
@@ -126,6 +126,7 @@ const PROPAGATE: u8 = 0;
 const TARGET: u8 = 1;
 const CACHE_READ: u8 = 2;
 const CACHE_WRITE: u8 = 3;
+const CACHE_DELETE: u8 = 4;
 
 pub const REGULAR_MESSAGE: u8 = 0;
 pub const CACHE_RESPONSE: u8 = 1;
@@ -134,15 +135,16 @@ async fn process_msg_bytes(
     mut b: tungstenite::Bytes,
     clients: Arc<Mutex<HashMap<Box<str>,
     UnboundedSender<Message>>>>,
-    cache: Arc<Mutex<HashMap<i32, CacheData>>>,
+    cache: Arc<Mutex<HashMap<i32, (Option<JoinHandle<()>>, CacheData)>>>,
     sender: UnboundedSender<Message>
 ) -> Result<(), BackendError> {
     let packet_type = b.get_u8();
-    let source = read_prefixed_string(&mut b)?.into_boxed_str();
+    let source = read_prefixed_string(&mut b)?;
 
-    let safe = clients.lock().await;
     match packet_type {
         PROPAGATE => {
+            let safe = clients.lock().await;
+            let source = source.into_boxed_str();
             for c in safe.iter() {
                 let (key, client) = c;
                 if *key != source {
@@ -151,6 +153,7 @@ async fn process_msg_bytes(
             }
         },
         TARGET => {
+            let safe = clients.lock().await;
             let name = read_prefixed_string(&mut b)?.into_boxed_str();
             if let Some(client) = safe.get(&name) {
                 client.send(encode_msg(&source, &mut b)?).map_err(|e| BackendError::new(&e.to_string(), 500))?;
@@ -162,12 +165,12 @@ async fn process_msg_bytes(
             let map = cache.lock().await;
             let mut response: BytesMut;
 
-            if let Some(cache) = map.get(&cache_id) && cache.channel == channel {
-                response = BytesMut::with_capacity(6 + cache.payload.len());
+            if let Some(cache) = map.get(&cache_id) && cache.1.channel == channel {
+                response = BytesMut::with_capacity(6 + cache.1.payload.len());
                 response.put_u8(CACHE_RESPONSE);
                 response.put_i32(cache_id);
                 response.put_u8(1); // true
-                response.extend_from_slice(&cache.payload);
+                response.extend_from_slice(&cache.1.payload);
             } else {
                 response = BytesMut::with_capacity(6);
                 response.put_u8(CACHE_RESPONSE);
@@ -178,14 +181,42 @@ async fn process_msg_bytes(
             sender.send(Message::Binary(response.freeze())).map_err(|e| BackendError::new(&e.to_string(), 500))?;
         },
         CACHE_WRITE => {
-            let source = read_prefixed_string(&mut b)?;
             let cache_id = b.get_i32();
+            let expiration_millis = b.get_i64();
             let channel = read_prefixed_string(&mut b)?;
-            let mut map = cache.lock().await;
             let mut data = BytesMut::with_capacity(32);
             data.extend_from_slice(&b);
 
-            map.insert(cache_id, CacheData { payload: data.freeze(), owner: source.into_boxed_str(), channel: channel.into_boxed_str() });
+            let source = source.into_boxed_str();
+            let source_cp = source.clone();
+
+            if expiration_millis > 0 {
+                let cache_cl = cache.clone();
+                let handle = tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(expiration_millis as u64)).await;
+
+                    let mut map = cache_cl.lock().await;
+                    if let Some(entry) = map.get(&cache_id) && entry.1.owner == source_cp {
+                        map.remove(&cache_id);
+                    }
+                });
+
+                let mut map = cache.lock().await;
+                map.insert(cache_id, (Some(handle), CacheData { payload: data.freeze(), owner: source, channel: channel.into_boxed_str() }));
+            } else {
+                let mut map = cache.lock().await;
+                map.insert(cache_id, (None, CacheData { payload: data.freeze(), owner: source, channel: channel.into_boxed_str() }));
+            }
+        },
+        CACHE_DELETE => {
+            let cache_id = b.get_i32();
+            let mut map = cache.lock().await;
+            if let Some(entry) = map.get(&cache_id) && entry.1.owner == source.into_boxed_str() {
+                if let Some(handle) = &entry.0 {
+                    handle.abort();
+                }
+                map.remove(&cache_id);
+            }
         },
         _ => {}
     };
@@ -196,7 +227,7 @@ async fn create_ws(
     req: Request<Incoming>,
     clients: Arc<Mutex<HashMap<Box<str>,
     UnboundedSender<Message>>>>,
-    cache: Arc<Mutex<HashMap<i32, CacheData>>>
+    cache: Arc<Mutex<HashMap<i32, (Option<JoinHandle<()>>, CacheData)>>>
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if ALLOWED_IP != req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
@@ -258,7 +289,13 @@ async fn create_ws(
 
             // Cleanup
             let mut caches = cache.lock().await;
-            caches.retain(|_, data| data.owner == name);
+            caches.retain(|_, data| {
+                let res = data.1.owner == name;
+                if res && let Some(handle) = &data.0 {
+                    handle.abort();
+                }
+                res
+            });
             drop(caches);
 
             let mut safe = clients.lock().await;

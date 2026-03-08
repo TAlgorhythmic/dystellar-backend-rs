@@ -9,6 +9,7 @@ pub mod jsonutils;
 pub mod punishment;
 
 pub use user::User;
+pub use user::UserMapping;
 pub use microsoft::SigninState;
 pub use microsoft::UserCredentials;
 pub use microsoft::MinecraftData;
