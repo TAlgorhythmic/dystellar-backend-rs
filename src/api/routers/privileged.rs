@@ -9,7 +9,7 @@ use tokio::{sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}}, task::Joi
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
-use crate::api::{control::ioutils::{encode_msg, read_prefixed_string}, typedef::CacheData};
+use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::user_remove_friend}, typedef::CacheData};
 use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
@@ -110,9 +110,7 @@ async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, In
     }
     check_token(&req)?;
 
-    let default_group = get_default_group_name()?;
-
-    if let Some(g) = default_group {
+    if let Some(g) = get_default_group_name()? {
         Ok(response_json(object! {
             default_group: from_utf8(&g)?,
             groups: JsonValue::Array(get_all_groups_full()?.iter().map(|g| g.to_json()).collect())
@@ -120,6 +118,21 @@ async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, In
     } else {
         Ok(response_json(object! { groups: JsonValue::Array(get_all_groups_full()?.iter().map(|g| g.to_json()).collect()) }))
     }
+}
+
+async fn user_friend_remove(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP != req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+    let sender_uuid = json["sender"].as_str().ok_or(BackendError::new("sender missing", 400))?;
+    let receiver_uuid = json["receiver"].as_str().ok_or(BackendError::new("receiver missing", 400))?;
+
+    user_remove_friend(sender_uuid, receiver_uuid)?;
+
+    Ok(response_json(object! { ok: true }))
 }
 
 const PROPAGATE: u8 = 0;
@@ -309,9 +322,10 @@ async fn create_ws(
 pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
     router.endpoint(Method::Get, "/api/privileged/player_data", player_data)?;
     router.endpoint(Method::Get, "/api/privileged/user_connected", user_connected)?;
+    router.endpoint(Method::Get, "/api/privileged/get_groups", get_groups)?;
     router.endpoint(Method::Post, "/api/privileged/punish", punish)?;
     router.endpoint(Method::Put, "/api/privileged/user_save", user_save)?;
-    router.endpoint(Method::Put, "/api/privileged/get_groups", get_groups)?;
+    router.endpoint(Method::Put, "/api/privileged/user_friend_remove", user_friend_remove)?;
 
     let clients = Arc::new(Mutex::new(HashMap::new()));
     let bytes = Arc::new(Mutex::new(HashMap::new()));

@@ -289,6 +289,15 @@ fn get_user_permissions(uuid: &str, tree: &Arc<Tree>) -> Result<Vec<Permission>,
     Ok(perms)
 }
 
+pub fn user_remove_friend(uuid1: &str, uuid2: &str) -> Result<(), BackendError> {
+    let tree = USERS.clone();
+
+    tree.remove(format!("{uuid2}:friends:{uuid1}"))?;
+    tree.remove(format!("{uuid1}:friends:{uuid2}"))?;
+
+    Ok(())
+}
+
 fn get_user_punishments(uuid: &str) -> Result<Vec<Punishment>, BackendError> {
     let mut puns = vec![];
 
