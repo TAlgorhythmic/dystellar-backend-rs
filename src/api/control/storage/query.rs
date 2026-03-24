@@ -30,6 +30,7 @@ pub fn put_user(user: &User) -> Result<(), BackendError> {
         tree.insert(format!("{uuid}:scoreboard").as_bytes(), &[user.scoreboard as u8])?;
         tree.insert(format!("{uuid}:coins").as_bytes(), &user.coins.to_be_bytes())?;
         tree.insert(format!("{uuid}:friend_reqs").as_bytes(), &[user.friend_reqs as u8])?;
+        tree.insert(format!("{uuid}:dnd").as_bytes(), &[user.dnd as u8])?;
         tree.insert(format!("{uuid}:created_at").as_bytes(), &encode_datetime(user.created_at))?;
         for friend in &user.friends {
             tree.insert(format!("{uuid}:friends:{}", friend.uuid).as_bytes(), friend.uuid.as_bytes())?;
@@ -340,6 +341,7 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
         u64::from_be_bytes(raw)
     } else { 0 };
     let friend_reqs = tree.get(format!("{uuid}:friend_reqs"))?.unwrap_or("1".into())[0] != 0;
+    let dnd = tree.get(format!("{uuid}:dnd"))?.unwrap_or("1".into())[0] != 0;
     let created_at = decode_datetime(&*tree.get(format!("{uuid}:created_at"))?.unwrap())?;
     let friends: Vec<UserMapping> = get_friends(uuid, &tree)?;
     let ignores: Vec<UserMapping> = get_ignores(uuid, &tree)?;
@@ -355,7 +357,7 @@ pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {
         chat, pms: pms.into(),
         suffix: suffix.into(),
         lang: lang.into(),
-        scoreboard, coins, friend_reqs,
+        scoreboard, coins, friend_reqs, dnd,
         created_at, friends, ignores,
         inbox, punishments, perms, group
     };

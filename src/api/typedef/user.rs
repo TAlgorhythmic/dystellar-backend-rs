@@ -33,6 +33,7 @@ pub struct User {
     pub scoreboard: bool,
     pub coins: u64,
     pub friend_reqs: bool,
+    pub dnd: bool,
     pub created_at: DateTime<Utc>,
     pub friends: Vec<UserMapping>,
     pub ignores: Vec<UserMapping>,
@@ -84,6 +85,7 @@ impl SerializableJson for User {
             scoreboard: self.scoreboard,
             coins: self.coins,
             friend_reqs: self.friend_reqs,
+            dnd: self.dnd,
             created_at: self.created_at.timestamp_millis(),
             friends: JsonValue::Array(
                 self.friends
@@ -124,6 +126,7 @@ impl SerializableJson for User {
         let scoreboard: bool = json["scoreboard"].as_bool().unwrap_or(true);
         let coins: u64 = json["coins"].as_u64().ok_or(BackendError::new("Missing user.coins", 400))?;
         let friend_reqs: bool = json["friend_reqs"].as_bool().unwrap_or(true);
+        let dnd: bool = json["dnd"].as_bool().unwrap_or(false);
         let created_at: u64 = json["created_at"].as_u64().ok_or(BackendError::new("Missing user.created_at", 400))?;
         let friends: Vec<UserMapping> = json["friends"].members().filter_map(|m| UserMapping::from_json(&m).ok()).collect();
         let ignores: Vec<UserMapping> = json["ignores"].members().filter_map(|m| UserMapping::from_json(&m).ok()).collect();
@@ -134,7 +137,7 @@ impl SerializableJson for User {
 
         Ok(Self {
             uuid, name, email, chat, pms, suffix, lang, scoreboard, coins,
-            friend_reqs, created_at: DateTime::from_timestamp_millis(created_at as i64).unwrap_or(Utc::now()),
+            friend_reqs, dnd, created_at: DateTime::from_timestamp_millis(created_at as i64).unwrap_or(Utc::now()),
             friends, ignores, inbox, punishments, perms, group
         })
     }
@@ -172,7 +175,7 @@ impl User {
 
         Self {
             uuid: uuid.into(), name: name.into(), email: None, chat: true, pms: PmsMode::PmsEnabled,
-            suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true,
+            suffix: "".into(), lang: "en".into(), scoreboard: true, coins: 0, friend_reqs: true, dnd: false,
             created_at: Utc::now(), friends: vec![], ignores: vec![], inbox: vec![], punishments: vec![], perms: vec![], group: group_default
         }
     }
