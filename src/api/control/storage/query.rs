@@ -15,6 +15,49 @@ static GROUPS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open
 static PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("punishments").expect("Failed to open 'punishments' tree")));
 static IP_PUNISHMENTS: LazyLock<Arc<Tree>> = LazyLock::new(|| Arc::new(get_client().open_tree("ip_punishments").expect("Failed to open 'ip_punishments' tree")));
 
+pub fn user_exists(uuid: &str) -> Result<bool, BackendError> {
+    let tree = USERS.clone();
+
+    Ok(tree.get(format!("{uuid}:name").as_bytes())?.is_some())
+}
+
+pub fn user_exists_by_name(name: &str) -> Result<bool, BackendError> {
+    let tree = NAME_INDEXES.clone();
+
+    Ok(tree.get(name.as_bytes())?.is_some())
+}
+
+pub fn group_exists(name: &str) -> Result<bool, BackendError> {
+    let tree = GROUPS.clone();
+
+    Ok(tree.get(format!("{name}:prefix"))?.is_some())
+}
+
+pub fn set_group_to_user(uuid: &str, group_name: &str) -> Result<(), BackendError> {
+    if !user_exists(uuid)? || !group_exists(group_name)? {
+        return Err(BackendError::new("user or group doesn't exist", 404));
+    }
+
+    let tree = USERS.clone();
+    tree.insert(format!("{uuid}:group"), group_name.as_bytes())?;
+
+    Ok(())
+}
+
+pub fn set_group_to_user_by_name(username: &str, group_name: &str) -> Result<(), BackendError> {
+    let indexes = NAME_INDEXES.clone();
+    let uuid = indexes.get(username.as_bytes())?;
+    if !uuid.is_none() || !group_exists(group_name)? {
+        return Err(BackendError::new("user or group doesn't exist", 404));
+    }
+    let uuid = uuid.unwrap();
+
+    let tree = USERS.clone();
+    tree.insert(format!("{}:group", from_utf8(&uuid)?), group_name.as_bytes())?;
+
+    Ok(())
+}
+
 pub fn put_user(user: &User) -> Result<(), BackendError> {
     let tree = USERS.clone();
 
@@ -181,6 +224,30 @@ pub fn get_default_group_name() -> Result<Option<IVec>, BackendError> {
 
 pub fn set_default_group(name: &str) -> Result<(), BackendError> {
     get_client().insert(b"default_group", name)?;
+
+    Ok(())
+}
+
+pub fn put_permission_to_group(group_name: &str, perm: &Permission) -> Result<(), BackendError> {
+    if !group_exists(group_name)? {
+        return Err(BackendError::new("Group doesn't exist", 404));
+    }
+
+    let tree = GROUPS.clone();
+    tree.insert(format!("{group_name}:permissions:{}", &perm.perm), &[perm.value as u8])?;
+
+    Ok(())
+}
+
+pub fn put_group(group: &Group) -> Result<(), BackendError> {
+    let tree = GROUPS.clone();
+
+    tree.insert(format!("{}:prefix", &group.name), group.prefix.as_bytes())?;
+    tree.insert(format!("{}:suffix", &group.name), group.suffix.as_bytes())?;
+
+    for perm in &group.perms {
+        tree.insert(format!("{}:permissions:{}", &group.name, &perm.perm), &[perm.value as u8])?;
+    }
 
     Ok(())
 }

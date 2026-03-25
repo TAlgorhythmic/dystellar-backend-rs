@@ -9,7 +9,7 @@ use tokio::{sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}}, task::Joi
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
-use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::user_remove_friend}, typedef::CacheData};
+use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::{get_group_full, set_default_group, set_group_to_user, set_group_to_user_by_name, user_remove_friend}}, typedef::CacheData};
 use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
@@ -118,6 +118,66 @@ async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, In
     } else {
         Ok(response_json(object! { groups: JsonValue::Array(get_all_groups_full()?.iter().map(|g| g.to_json()).collect()) }))
     }
+}
+
+async fn get_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP != req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+    let args = get_body_url_args(&req)?;
+
+    let name = args.get("name".into()).ok_or(BackendError::new("name missing from url params", 400))?;
+
+    if let Some(g) = get_group_full(&name)? {
+        Ok(response_json(g.to_json()))
+    } else {
+        Err(BackendError::new("Group not found", 404))
+    }
+}
+
+async fn set_user_group_by_name(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP != req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+    let username = json["username"].as_str().ok_or(BackendError::new("username missing", 400))?;
+    let group_name = json["group"].as_str().ok_or(BackendError::new("group missing", 400))?;
+
+    set_group_to_user_by_name(username, group_name)?;
+
+    Ok(response_json(object! { ok: true }))
+}
+
+async fn set_user_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP != req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+    let uuid = json["uuid"].as_str().ok_or(BackendError::new("uuid missing", 400))?;
+    let group_name = json["group"].as_str().ok_or(BackendError::new("group missing", 400))?;
+
+    set_group_to_user(uuid, group_name)?;
+
+    Ok(response_json(object! { ok: true }))
+}
+
+async fn set_group_default(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    if ALLOWED_IP != req.uri().host().unwrap() {
+        return Err(BackendError::new("Operation not permitted.", 401));
+    }
+    check_token(&req)?;
+
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+    let name = json["name"].as_str().ok_or(BackendError::new("name missing", 400))?;
+
+    set_default_group(name)?;
+
+    Ok(response_json(object! { ok: true }))
 }
 
 async fn user_friend_remove(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
@@ -323,9 +383,13 @@ pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + 
     router.endpoint(Method::Get, "/api/privileged/player_data", player_data)?;
     router.endpoint(Method::Get, "/api/privileged/user_connected", user_connected)?;
     router.endpoint(Method::Get, "/api/privileged/get_groups", get_groups)?;
+    router.endpoint(Method::Get, "/api/privileged/get_group", get_group)?;
+    router.endpoint(Method::Put, "/api/privileged/set_user_group", set_user_group)?;
+    router.endpoint(Method::Put, "/api/privileged/set_user_group_by_name", set_user_group_by_name)?;
     router.endpoint(Method::Post, "/api/privileged/punish", punish)?;
     router.endpoint(Method::Put, "/api/privileged/user_save", user_save)?;
     router.endpoint(Method::Put, "/api/privileged/user_friend_remove", user_friend_remove)?;
+    router.endpoint(Method::Put, "/api/privileged/set_group_default", set_group_default)?;
 
     let clients = Arc::new(Mutex::new(HashMap::new()));
     let bytes = Arc::new(Mutex::new(HashMap::new()));
