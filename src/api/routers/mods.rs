@@ -6,7 +6,7 @@ use hyper::{Request, Response, body::{Bytes, Incoming}, header::CONTENT_TYPE};
 use json::{object, stringify};
 use tokio::{sync::Mutex, task::spawn_blocking};
 
-use crate::api::{control::inotify::DirWatcher, typedef::{BackendError, ModMetadata, routing::{Method, nodes::Router}}};
+use crate::api::{control::inotify::DirWatcher, typedef::{BackendError, ModMetadata, routing::{Method, nodes::Node}}};
 
 fn generate_mod_registry() -> Result<Box<str>, Box<dyn Error + Send + Sync>> {
     println!("Generating mod registry...");
@@ -67,7 +67,7 @@ async fn manifest(_: Request<Incoming>, registry: Arc<Mutex<Box<str>>>) -> Resul
     )
 }
 
-pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
+pub async fn register(node: &mut Node) -> Result<(), Box<dyn Error + Send + Sync>> {
     fs::create_dir_all("repository/mods/optional")?;
 
     let registry = Arc::new(Mutex::new(generate_mod_registry_async().await?));
@@ -101,7 +101,8 @@ pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + 
     mods_dir.listen();
     optional_mods_dir.listen();
 
-    router.endpoint(Method::Get, "/api/mods/manifest", move |req| manifest(req, registry.clone()))?;
+    node.subnode("/mods")?
+        .endpoint("/manifest", Method::Get, move |req| manifest(req, registry.clone()))?;
 
     Ok(())
 }

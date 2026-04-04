@@ -16,7 +16,7 @@ use crate::api::typedef::{BackendError, routing::nodes::Router};
 pub async fn handle(req: Request<Incoming>, router: Arc<Mutex<Router>>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let router = router.lock().await;
 
-    if let Some(endpoint) = router.get_endpoint(req.uri().path(), req.method().as_str().into()) {
+    if let Some(endpoint) = router.get_endpoint(req.uri().path(), req.method().as_str().into(), &req)? {
         let fut = endpoint.get_handler()(req);
         return fut.await;
     } else if req.method().as_str() == "GET" {

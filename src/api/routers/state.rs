@@ -19,7 +19,7 @@ async fn launcher(_: Request<Incoming>, state: Arc<Mutex<State>>) -> Result<Resp
 pub async fn register(router: &mut Router, watcher: &mut DirWatcher) -> Result<(), Box<dyn Error + Send + Sync>> {
     let state = State::open("state.json", watcher)?;
 
-    router.endpoint(Method::Get, "/launcher", move |req| launcher(req, state.clone()))?;
+    router.endpoint("/launcher", Method::Get, move |req| launcher(req, state.clone()))?;
 
     Ok(())
 }

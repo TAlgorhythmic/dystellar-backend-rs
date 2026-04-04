@@ -89,8 +89,8 @@ impl Config for Redirects {
             let val = value.clone();
 
             let _ = router.endpoint(
-                Method::Get,
                 format!("/{key}").as_str(),
+                Method::Get,
                 move |_| {
                     let url = val.clone();
                     async move {

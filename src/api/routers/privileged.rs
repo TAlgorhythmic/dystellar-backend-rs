@@ -9,8 +9,8 @@ use tokio::{sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}}, task::Joi
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
-use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::{get_group_full, set_default_group, set_group_to_user, set_group_to_user_by_name, user_remove_friend}}, typedef::CacheData};
-use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
+use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::{get_group_full, set_default_group, set_group_to_user, set_group_to_user_by_name, user_remove_friend}}, typedef::{CacheData, routing::nodes::Node}};
+use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::Method}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
 static ALLOWED_IP: &str = env!("PRIVILEGED_AUTHORIZED_IP");
@@ -26,14 +26,19 @@ fn check_token(req: &Request<Incoming>) -> Result<(), BackendError> {
     Err(BackendError::new("Operation not permitted.", 401))
 }
 
-/**
-* Punish a player, this creates a punishment, assigns it to the player and returns it.
-*/
-async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+fn privileged_middleware(req: &Request<Incoming>) -> Result<(), BackendError> {
     if ALLOWED_IP != req.uri().host().unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
     check_token(&req)?;
+
+    Ok(())
+}
+
+/**
+* Punish a player, this creates a punishment, assigns it to the player and returns it.
+*/
+async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let json = get_body_json(HttpTransaction::Req(req)).await?;
 
     let user_uuid = json["user_uuid"].as_str().ok_or(BackendError::new("user_uuid missing", 400))?;
@@ -62,13 +67,8 @@ async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infall
 * authorized IP.
 */
 async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-
     let args = get_body_url_args(&req)?;
     let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid expected", 400))?;
-    check_token(&req)?;
     
     let data = get_user(uuid)?.ok_or(BackendError::new("User not found", 404))?;
 
@@ -76,12 +76,7 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
 }
 
 async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-
     let args = get_body_url_args(&req)?;
-    check_token(&req)?;
 
     let uuid = args.get("uuid").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
     let name = args.get("name").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
@@ -93,10 +88,6 @@ async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
 }
 
 async fn user_save(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
     let json = get_body_json(HttpTransaction::Req(req)).await?;
 
     put_user(&User::from_json(&json)?)?;
@@ -104,12 +95,7 @@ async fn user_save(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Inf
     Ok(response_json(object! { ok: true }))
 }
 
-async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
-
+async fn get_groups(_: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     if let Some(g) = get_default_group_name()? {
         Ok(response_json(object! {
             default_group: from_utf8(&g)?,
@@ -121,10 +107,6 @@ async fn get_groups(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, In
 }
 
 async fn get_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
     let args = get_body_url_args(&req)?;
 
     let name = args.get("name".into()).ok_or(BackendError::new("name missing from url params", 400))?;
@@ -137,11 +119,6 @@ async fn get_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Inf
 }
 
 async fn set_user_group_by_name(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
-
     let json = get_body_json(HttpTransaction::Req(req)).await?;
     let username = json["username"].as_str().ok_or(BackendError::new("username missing", 400))?;
     let group_name = json["group"].as_str().ok_or(BackendError::new("group missing", 400))?;
@@ -152,11 +129,6 @@ async fn set_user_group_by_name(req: Request<Incoming>) -> Result<Response<BoxBo
 }
 
 async fn set_user_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
-
     let json = get_body_json(HttpTransaction::Req(req)).await?;
     let uuid = json["uuid"].as_str().ok_or(BackendError::new("uuid missing", 400))?;
     let group_name = json["group"].as_str().ok_or(BackendError::new("group missing", 400))?;
@@ -167,11 +139,6 @@ async fn set_user_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes
 }
 
 async fn set_group_default(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
-
     let json = get_body_json(HttpTransaction::Req(req)).await?;
     let name = json["name"].as_str().ok_or(BackendError::new("name missing", 400))?;
 
@@ -181,11 +148,6 @@ async fn set_group_default(req: Request<Incoming>) -> Result<Response<BoxBody<By
 }
 
 async fn user_friend_remove(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
-
     let json = get_body_json(HttpTransaction::Req(req)).await?;
     let sender_uuid = json["sender"].as_str().ok_or(BackendError::new("sender missing", 400))?;
     let receiver_uuid = json["receiver"].as_str().ok_or(BackendError::new("receiver missing", 400))?;
@@ -302,11 +264,6 @@ async fn create_ws(
     UnboundedSender<Message>>>>,
     cache: Arc<Mutex<HashMap<i32, (Option<JoinHandle<()>>, CacheData)>>>
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
-        return Err(BackendError::new("Operation not permitted.", 401));
-    }
-    check_token(&req)?;
-
     let mut query = get_body_url_args(&req)?;
     let name = query.remove("name".into());
 
@@ -379,21 +336,23 @@ async fn create_ws(
     Ok(res.map(|b| BoxBody::new(b)))
 }
 
-pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
-    router.endpoint(Method::Get, "/api/privileged/player_data", player_data)?;
-    router.endpoint(Method::Get, "/api/privileged/user_connected", user_connected)?;
-    router.endpoint(Method::Get, "/api/privileged/get_groups", get_groups)?;
-    router.endpoint(Method::Get, "/api/privileged/get_group", get_group)?;
-    router.endpoint(Method::Put, "/api/privileged/set_user_group", set_user_group)?;
-    router.endpoint(Method::Put, "/api/privileged/set_user_group_by_name", set_user_group_by_name)?;
-    router.endpoint(Method::Post, "/api/privileged/punish", punish)?;
-    router.endpoint(Method::Put, "/api/privileged/user_save", user_save)?;
-    router.endpoint(Method::Put, "/api/privileged/user_friend_remove", user_friend_remove)?;
-    router.endpoint(Method::Put, "/api/privileged/set_group_default", set_group_default)?;
-
+pub async fn register(node: &mut Node) -> Result<(), Box<dyn Error + Send + Sync>> {
     let clients = Arc::new(Mutex::new(HashMap::new()));
     let bytes = Arc::new(Mutex::new(HashMap::new()));
-    router.endpoint(Method::Get, "/api/privileged/create_ws", move |req| create_ws(req, clients.clone(), bytes.clone()))?;
+
+    node.subnode("/privileged")?
+        .endpoint("/player_data", Method::Get, player_data)?
+        .endpoint("/user_connected", Method::Get, user_connected)?
+        .endpoint("/get_groups", Method::Get, get_groups)?
+        .endpoint("/get_group", Method::Get, get_group)?
+        .endpoint("/set_user_group", Method::Put, set_user_group)?
+        .endpoint("/set_user_group_by_name", Method::Put, set_user_group_by_name)?
+        .endpoint("/punish", Method::Post, punish)?
+        .endpoint("/user_save", Method::Put, user_save)?
+        .endpoint("/user_friend_remove", Method::Put, user_friend_remove)?
+        .endpoint("/set_group_default", Method::Put, set_group_default)?
+        .endpoint("/create_ws", Method::Get, move |req| create_ws(req, clients.clone(), bytes.clone()))?
+        .middleware(privileged_middleware);
 
     Ok(())
 }

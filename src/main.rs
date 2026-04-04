@@ -30,16 +30,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     init_db().await.expect("Failed to initialize database");
 
     let mut router = Router::new();
+    let api = router.subnode("/api")?;
     let mut watcher = DirWatcher::create(".")?;
 
     // Register endpoints
-    microsoft::register(&mut router).await?;
-    signal::register(&mut router).await?;
-    privileged::register(&mut router).await?;
-    users::register(&mut router).await?;
+    microsoft::register(api).await?;
+    signal::register(api).await?;
+    privileged::register(api).await?;
+    users::register(api).await?;
+    mods::register(api).await?;
     state::register(&mut router, &mut watcher).await?;
     stream::register(&mut router).await?;
-    mods::register(&mut router).await?;
 
     let router = Arc::new(Mutex::new(router));
 

@@ -10,6 +10,7 @@ use hyper::{Request, Response};
 use super::{Method, Endpoint};
 use crate::api::typedef::BackendError;
 
+pub type Middleware = Box<dyn Fn(&Request<Incoming>) -> Result<(), BackendError> + Send + 'static>;
 pub type EndpointHandler = Box<dyn Fn(Request<Incoming>) -> Pin<Box<dyn Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
 pub type FsEndpointHandler = Box<dyn Fn(Request<Incoming>, String) -> Pin<Box<dyn Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static>> + Send + Sync + 'static>;
 
@@ -32,6 +33,7 @@ pub struct FsNodeMapper {
 pub struct Node {
     name: Box<str>,
     subnodes: Vec<Node>,
+    middleware: Option<Middleware>,
     endpoints: Vec<Endpoint>,
 }
 
@@ -52,11 +54,42 @@ impl FsNodeMapper {
 
 impl Node {
     fn new(val: &str) -> Self {
-        Self { name: val.into(), subnodes: vec![], endpoints: vec![] }
+        Self { name: val.into(), subnodes: vec![], middleware: None, endpoints: vec![] }
     }
 
     pub fn empty() -> Self {
         Self::new("")
+    }
+
+    pub fn subnode(&mut self, path: &str) -> Result<&mut Node, Box<dyn Error + Send + Sync>> {
+        let path_slice = &path[if path.starts_with('/') {1} else {0}..];
+
+        if self.subnodes_search(path_slice).is_some() {
+            return Err(format!("Node {path_slice} already exists in {}", self.get_name()).into());
+        }
+
+        self.subnodes.push(Node::new(path_slice));
+        Ok(self.subnodes.last_mut().unwrap())
+    }
+
+    pub fn endpoint<F, Fut>(&mut self, path: &str, method: Method, f: F) -> Result<&mut Self, Box<dyn Error + Send + Sync>>
+    where
+        F: Fn(Request<Incoming>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static
+        {
+        let path_slice = &path[if path.starts_with('/') {1} else {0}..];
+
+        if self.endpoints_search(path_slice, &method).is_some() {
+            return Err(format!("Endpoint {path_slice} already exists in {}", self.get_name()).into());
+        }
+
+        self.endpoints.push(Endpoint::new(method, path_slice, Box::new(move |req| Box::pin(f(req)))));
+        Ok(self)
+    }
+
+    pub fn middleware(&mut self, f: impl Fn(&Request<Incoming>) -> Result<(), BackendError> + Send + 'static) -> &mut Self {
+        self.middleware.replace(Box::new(f));
+        self
     }
 
     pub fn remove_endpoint(&mut self, val: &str, method: &Method) {
@@ -79,25 +112,20 @@ impl Node {
         &self.name
     }
 
-    fn get_endpoint_recursive(&self, segments: &[&str], method: &Method) -> Option<&Endpoint> {
-        if segments.len() == 1 {
-            return self.endpoints_search(segments[0], method);
-        }
+    fn get_endpoint(&self, parts: &[&str], method: &Method, req: &Request<Incoming>) -> Result<Option<&Endpoint>, BackendError> {
+        if parts.is_empty() {
+            Ok(None)
+        } else if parts.len() == 1 {
+            Ok(self.endpoints_search(parts[0], method))
+        } else if let Some(node) = self.subnodes_search(parts[0]) {
+            if let Some(middleware) = &node.middleware {
+                middleware(req)?;
+            }
 
-        if let Some(child) = self.subnodes_search(segments[0]) {
-            child.get_endpoint_recursive(&segments[1..], method)
+            node.get_endpoint(&parts[1..], method, req)
         } else {
-            None
+            Ok(None)
         }
-    }
-
-    fn get_endpoint(&self, path: &str, method: &Method) -> Option<&Endpoint> {
-        let it: Vec<&str> = path.trim_start_matches('/').split('/').collect();
-        if it.is_empty() {
-            return None;
-        }
-
-        self.get_endpoint_recursive(&it, method)
     }
 }
 
@@ -127,8 +155,21 @@ impl Router {
         Self { base: Node::empty(), fs_mappers: vec![] }
     }
 
-    pub fn get_endpoint(&self, path: &str, method: Method) -> Option<&Endpoint> {
-        self.base.get_endpoint(path, &method)
+    pub fn get_endpoint(&self, path: &str, method: Method, req: &Request<Incoming>) -> Result<Option<&Endpoint>, BackendError> {
+        self.base.get_endpoint(&path.split('/').collect::<Vec<&str>>()[1..], &method, req)
+    }
+
+    pub fn subnode(&mut self, path: &str) -> Result<&mut Node, Box<dyn Error + Send + Sync>> {
+        self.base.subnode(path)
+    }
+
+    pub fn endpoint<F, Fut>(&mut self, path: &str, method: Method, f: F) -> Result<&mut Self, Box<dyn Error + Send + Sync>>
+    where
+        F: Fn(Request<Incoming>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static
+    {
+        self.base.endpoint(path, method, f)?;
+        Ok(self)
     }
 
     pub fn get_mapper(&self, path: &str) -> Option<(&FsNodeMapper, String)> {
@@ -182,23 +223,5 @@ impl Router {
         self.fs_mappers.push(FsNodeMapper::new(path, map, Box::new(move |req, s| Box::pin(func(req, s)))));
 
         Ok(())
-    }
-
-    pub fn endpoint<F, Fut>(&mut self, method: Method, path: &str, func: F) -> Result<(), Box<dyn Error + Send + Sync>>
-    where
-        F: Fn(Request<Incoming>) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = Result<Response<BoxBody<Bytes, Infallible>>, BackendError>> + Send + 'static
-    {
-        if !path.starts_with('/') {
-            return Err("Invalid path name".into());
-        }
-
-        let split = path.split('/').collect::<Vec<&str>>();
-
-        if split.len() < 1 {
-            return Err("Not an endpoint".into());
-        }
-
-        register_endpoint(1, &mut self.base, split, method, Box::new(move |req| Box::pin(func(req))))
     }
 }

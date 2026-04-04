@@ -5,7 +5,7 @@ use http_body_util::combinators::BoxBody;
 use hyper::{body::{Bytes, Incoming}, header::AUTHORIZATION, Request, Response};
 use tokio::sync::Mutex;
 
-use crate::api::{control::storage::query::get_user, typedef::{BackendError, jsonutils::SerializableJson, routing::{Method, nodes::Router}}, utils::{get_body_url_args, response_json}};
+use crate::api::{control::storage::query::get_user, typedef::{BackendError, jsonutils::SerializableJson, routing::{Method, nodes::Node}}, utils::{get_body_url_args, response_json}};
 
 pub static TOKENS: LazyLock<Arc<Mutex<HashMap<Box<str>, (Box<str>, DateTime<Utc>)>>>> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
@@ -46,8 +46,8 @@ async fn get(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallibl
     }
 }
 
-pub async fn register(router: &mut Router) -> Result<(), Box<dyn Error + Send + Sync>> {
-    router.endpoint(Method::Get, "/api/users", get)?;
+pub async fn register(node: &mut Node) -> Result<(), Box<dyn Error + Send + Sync>> {
+    node.endpoint("/users", Method::Get, get)?;
 
     Ok(())
 }
