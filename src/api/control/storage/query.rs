@@ -2,7 +2,7 @@ use std::{collections::HashSet, str::from_utf8, sync::{Arc, LazyLock}};
 
 use chrono::{DateTime, Utc};
 use json::stringify;
-use sled::{IVec, Tree, transaction::ConflictableTransactionError};
+use sled::{Batch, IVec, Tree, transaction::ConflictableTransactionError};
 
 use crate::api::{encoder::{decode_datetime, encode_datetime}, typedef::{BackendError, User, UserMapping, jsonutils::SerializableJson, mailing::{Mail, get_json_from_mails, get_mails_from_json}, permissions::{Group, Permission}, punishment::Punishment}};
 use super::setup::get_client;
@@ -235,6 +235,19 @@ pub fn put_permission_to_group(group_name: &str, perm: &Permission) -> Result<()
 
     let tree = GROUPS.clone();
     tree.insert(format!("{group_name}:permissions:{}", &perm.perm), &[perm.value as u8])?;
+
+    Ok(())
+}
+
+pub fn remove_perms_from_group(group: &Group) -> Result<(), BackendError> {
+    let tree = GROUPS.clone();
+    let mut batch = Batch::default();
+
+    for e in tree.scan_prefix(format!("{}:permissions:", &group.name)).keys() {
+        batch.remove(e?);
+    }
+
+    tree.apply_batch(batch)?;
 
     Ok(())
 }
