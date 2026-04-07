@@ -265,6 +265,21 @@ pub fn put_group(group: &Group) -> Result<(), BackendError> {
     Ok(())
 }
 
+pub fn remove_group(group_name: &str) -> Result<bool, BackendError> {
+    let tree = GROUPS.clone();
+    let mut batch = Batch::default();
+    if !group_exists(group_name)? {
+        return Ok(false);
+    }
+
+    for k in tree.scan_prefix(group_name).keys() {
+        batch.remove(k?);
+    }
+
+    tree.apply_batch(batch)?;
+    Ok(true)
+}
+
 pub fn get_group_full(name: &str) -> Result<Option<Group>, BackendError> {
     let tree = GROUPS.clone();
 
