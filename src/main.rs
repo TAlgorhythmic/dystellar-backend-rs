@@ -1,7 +1,7 @@
 mod api;
 
 use api::{service::srv_api, control::{inotify::DirWatcher, storage::setup::init_db}};
-use api::routers::{microsoft, signal, state, users, redirections, stream, privileged};
+use api::routers::{microsoft, signal, state, users, redirections, stream, core};
 use std::{net::SocketAddr, sync::Arc, thread};
 use tokio::{net::TcpListener, runtime::Builder, sync::Mutex};
 use hyper_util::rt::TokioIo;
@@ -36,7 +36,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Register endpoints
     microsoft::register(api).await?;
     signal::register(api).await?;
-    privileged::register(api).await?;
+    core::register(api).await?;
     users::register(api).await?;
     mods::register(api).await?;
     state::register(&mut router, &mut watcher).await?;

@@ -1,6 +1,6 @@
 pub mod microsoft;
 pub mod signal;
-pub mod privileged;
+pub mod core;
 pub mod users;
 pub mod state;
 pub mod stream;

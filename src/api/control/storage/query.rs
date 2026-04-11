@@ -154,6 +154,20 @@ pub fn create_punishment(
     Ok(punishment)
 }
 
+pub fn unpunish_by_name(username: &str, punishment_id: u64) -> Result<(), BackendError> {
+    let maps = NAME_INDEXES.clone();
+    let users = USERS.clone();
+
+    if let Some(uuid) = maps.get(username.as_bytes())?
+        && users.get(format!("{}:punishments{punishment_id}", from_utf8(&uuid)?).as_bytes())?.is_some()
+        && let Some(mut punishment) = get_punishment(punishment_id)? {
+        let tree = PUNISHMENTS.clone();
+        punishment.expiration_date = Some(Utc::now());
+        tree.insert(punishment_id.to_be_bytes(), stringify(punishment.to_json()).as_bytes())?;
+        Ok(())
+    } else { Err(BackendError::new("Punishment not found", 404)) }
+}
+
 pub fn set_name_index(name: &str, uuid: &str) -> Result<(), BackendError> {
     let tree = NAME_INDEXES.clone();
 
@@ -235,6 +249,17 @@ pub fn put_permission_to_group(group_name: &str, perm: &Permission) -> Result<()
 
     let tree = GROUPS.clone();
     tree.insert(format!("{group_name}:permissions:{}", &perm.perm), &[perm.value as u8])?;
+
+    Ok(())
+}
+
+pub fn delete_permission_from_group(group_name: &str, perm: &str) -> Result<(), BackendError> {
+    if !group_exists(group_name)? {
+        return Err(BackendError::new("Group doesn't exist", 404));
+    }
+
+    let tree = GROUPS.clone();
+    tree.remove(format!("{group_name}:permissions:{}", perm))?;
 
     Ok(())
 }
@@ -410,6 +435,16 @@ fn get_user_punishments(uuid: &str) -> Result<Vec<Punishment>, BackendError> {
     }
 
     Ok(puns)
+}
+
+fn get_punishment(id: u64) -> Result<Option<Punishment>, BackendError> {
+    let tree = PUNISHMENTS.clone();
+
+    if let Some(punishment) = tree.get(id.to_be_bytes())? {
+        Ok(Some(Punishment::from_json(&json::parse(from_utf8(&punishment)?)?)?))
+    } else {
+        Ok(None)
+    }
 }
 
 pub fn get_user(uuid: &str) -> Result<Option<User>, BackendError> {

@@ -9,7 +9,7 @@ use tokio::{sync::{Mutex, mpsc::{UnboundedSender, unbounded_channel}}, task::Joi
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::{Message, protocol::WebSocketConfig};
 
-use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::{get_group_full, put_group, put_permission_to_group, remove_group, remove_perms_from_group, set_default_group, set_group_to_user, set_group_to_user_by_name, user_remove_friend}}, typedef::{CacheData, permissions::{Group, Permission}, routing::nodes::Node}};
+use crate::api::{control::{ioutils::{encode_msg, read_prefixed_string}, storage::query::{delete_permission_from_group, get_group_full, put_group, put_permission_to_group, remove_group, remove_perms_from_group, set_default_group, set_group_to_user, set_group_to_user_by_name, unpunish_by_name, user_remove_friend}}, typedef::{CacheData, permissions::{Group, Permission}, routing::nodes::Node}};
 use crate::api::{control::storage::query::{create_punishment, get_all_groups_full, get_default_group_name, get_user, get_user_connected, put_user}, typedef::{BackendError, User, jsonutils::SerializableJson, routing::Method}, utils::{HttpTransaction, get_body_json, get_body_url_args, response_json}};
 
 static TOKEN: &str = env!("PRIVILEGE_TOKEN");
@@ -60,6 +60,17 @@ async fn punish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infall
 
     let pun = create_punishment(user_uuid, title, r#type, creation_date, expiration_date, reason, alsoip, allow_chat, allow_ranked, allow_unranked, allow_join_minigames)?;
     Ok(response_json(pun.to_json()))
+}
+
+async fn unpunish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+
+    let username = json["username"].as_str().ok_or(BackendError::new("username missing", 400))?;
+    let pun_id = json["punishment_id"].as_u64().ok_or(BackendError::new("punishment_id missing", 400))?;
+
+    unpunish_by_name(username, pun_id)?;
+
+    Ok(response_json(object! { ok: true }))
 }
 
 /**
@@ -157,9 +168,19 @@ async fn add_perm_to_group(req: Request<Incoming>) -> Result<Response<BoxBody<By
     Ok(response_json(object! { ok: true }))
 }
 
-async fn delete_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+async fn remove_perm_from_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let json = get_body_json(HttpTransaction::Req(req)).await?;
     let group_name = json["group_name"].as_str().ok_or(BackendError::new("group_name missing", 400))?;
+    let perm = json["permission"].as_str().ok_or(BackendError::new("permission missing", 400))?;
+
+    delete_permission_from_group(group_name, perm)?;
+
+    Ok(response_json(object! { ok: true }))
+}
+
+async fn delete_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
+    let json = get_body_json(HttpTransaction::Req(req)).await?;
+    let group_name = json["name"].as_str().ok_or(BackendError::new("name missing", 400))?;
 
     if !remove_group(group_name)? {
         Err(BackendError::new("This group doesn't exist", 404))
@@ -390,8 +411,10 @@ pub async fn register(node: &mut Node) -> Result<(), Box<dyn Error + Send + Sync
         .endpoint("/update_group", Method::Post, update_group)?
         .endpoint("/delete_perms_and_update_group", Method::Put, delete_perms_and_update_group)?
         .endpoint("/add_perm_to_group", Method::Put, add_perm_to_group)?
+        .endpoint("/remove_perm_from_group", Method::Delete, remove_perm_from_group)?
         .endpoint("/delete_group", Method::Delete, delete_group)?
         .endpoint("/punish", Method::Post, punish)?
+        .endpoint("/unpunish", Method::Put, unpunish)?
         .endpoint("/user_save", Method::Put, user_save)?
         .endpoint("/user_friend_remove", Method::Put, user_friend_remove)?
         .endpoint("/set_group_default", Method::Put, set_group_default)?

@@ -2,7 +2,7 @@ use hyper::body::Buf;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tungstenite::Message;
 
-use crate::api::{routers::privileged::REGULAR_MESSAGE, typedef::BackendError};
+use crate::api::{routers::core::REGULAR_MESSAGE, typedef::BackendError};
 
 pub fn read_prefixed_string(b: &mut tungstenite::Bytes) -> Result<String, BackendError> {
     let len = b.get_u16();
