@@ -27,10 +27,10 @@ fn check_token(req: &Request<Incoming>) -> Result<(), BackendError> {
 }
 
 fn privileged_middleware(req: &Request<Incoming>) -> Result<(), BackendError> {
-    if req.headers().get("X-Target-Host").is_none() || ALLOWED_IP != req.headers().get("X-Target-Host").unwrap() {
-        println!("X-Target-Host missing? or incorrect");
-        if req.headers().get("X-Target-Host").is_some() {
-            println!("header: {}", req.headers().get("X-Target-Host").unwrap().to_str().unwrap());
+    if req.headers().get("x-target-host").is_none() || ALLOWED_IP != req.headers().get("X-Target-Host").unwrap() {
+        println!("x-target-host missing? or incorrect");
+        if req.headers().get("x-target-host").is_some() {
+            println!("header: {}", req.headers().get("x-target-host").unwrap().to_str().unwrap());
         }
         return Err(BackendError::new("Operation not permitted.", 401));
     }
