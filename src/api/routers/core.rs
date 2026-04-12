@@ -79,7 +79,7 @@ async fn unpunish(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infa
 */
 async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let args = get_body_url_args(&req)?;
-    let uuid = args.get("uuid").ok_or(BackendError::new("Malformed url, uuid expected", 400))?;
+    let uuid = args.get(&Into::<Box<str>>::into("uuid")).ok_or(BackendError::new("Malformed url, uuid expected", 400))?;
     
     let data = get_user(uuid)?.ok_or(BackendError::new("User not found", 404))?;
 
@@ -89,9 +89,9 @@ async fn player_data(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, I
 async fn user_connected(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let args = get_body_url_args(&req)?;
 
-    let uuid = args.get("uuid").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
-    let name = args.get("name").ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
-    let address = args.get("address").ok_or(BackendError::new("Falformed url, address expected", 400))?;
+    let uuid = args.get(&Into::<Box<str>>::into("uuid")).ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
+    let name = args.get(&Into::<Box<str>>::into("name")).ok_or(BackendError::new("Falformed url, uuid expected", 400))?;
+    let address = args.get(&Into::<Box<str>>::into("address")).ok_or(BackendError::new("Falformed url, address expected", 400))?;
 
     let data = get_user_connected(uuid.as_ref(), name.as_ref(), address.as_ref())?;
 
@@ -120,7 +120,7 @@ async fn get_groups(_: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infa
 async fn get_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let args = get_body_url_args(&req)?;
 
-    let name = args.get("name".into()).ok_or(BackendError::new("name missing from url params", 400))?;
+    let name = args.get(&Into::<Box<str>>::into("name")).ok_or(BackendError::new("name missing from url params", 400))?;
 
     if let Some(g) = get_group_full(&name)? {
         Ok(response_json(g.to_json()))
@@ -326,7 +326,7 @@ async fn create_ws(
     cache: Arc<Mutex<HashMap<i32, (Option<JoinHandle<()>>, CacheData)>>>
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let mut query = get_body_url_args(&req)?;
-    let name = query.remove("name".into());
+    let name = query.remove(&Into::<Box<str>>::into("name"));
 
     if !hyper_tungstenite::is_upgrade_request(&req) || req.version() != Version::HTTP_11 || name.is_none() {
         return Err(BackendError::new("Bad request", 400));
