@@ -27,7 +27,7 @@ fn check_token(req: &Request<Incoming>) -> Result<(), BackendError> {
 }
 
 fn privileged_middleware(req: &Request<Incoming>) -> Result<(), BackendError> {
-    if ALLOWED_IP != req.uri().host().unwrap() {
+    if req.headers().get("host").is_none() || ALLOWED_IP != req.headers().get("host").unwrap() {
         return Err(BackendError::new("Operation not permitted.", 401));
     }
     check_token(&req)?;
