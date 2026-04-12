@@ -113,7 +113,6 @@ impl Node {
     }
 
     fn get_endpoint(&self, parts: &[&str], method: &Method, req: &Request<Incoming>) -> Result<Option<&Endpoint>, BackendError> {
-        println!("Current part: {}", parts[0]);
         if parts.is_empty() {
             Ok(None)
         } else if parts.len() == 1 {
