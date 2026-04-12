@@ -28,6 +28,10 @@ fn check_token(req: &Request<Incoming>) -> Result<(), BackendError> {
 
 fn privileged_middleware(req: &Request<Incoming>) -> Result<(), BackendError> {
     if req.headers().get("Target-Host").is_none() || ALLOWED_IP != req.headers().get("Target-Host").unwrap() {
+        println!("Target-Host missing? or incorrect");
+        if req.headers().get("Target-Host").is_some() {
+            println!("header: {}", req.headers().get("Target-Host").unwrap().to_str().unwrap());
+        }
         return Err(BackendError::new("Operation not permitted.", 401));
     }
     check_token(&req)?;
