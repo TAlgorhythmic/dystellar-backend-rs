@@ -330,7 +330,7 @@ async fn create_ws(
     cache: Arc<Mutex<HashMap<i32, (Option<JoinHandle<()>>, CacheData)>>>
 ) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let mut query = get_body_url_args(&req)?;
-    let name = query.remove(&Into::<Box<str>>::into("name"));
+    let name = query.get(&Into::<Box<str>>::into("name"));
 
     if !hyper_tungstenite::is_upgrade_request(&req) || req.version() != Version::HTTP_11 || name.is_none() {
         return Err(BackendError::new("Bad request", 400));
