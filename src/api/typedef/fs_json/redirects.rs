@@ -18,7 +18,7 @@ impl Redirects {
 
         if conf.load_async(path).is_err() {
             println!("{path} doesn't seem to exist, creating default config...");
-            if let Err(err) = conf.save(path) {
+            if let Err(err) = tokio::task::block_in_place(|| conf.save(path)) {
                 eprintln!("Failed to save file: {}", err.to_string());
             }
         }
