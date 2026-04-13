@@ -1,4 +1,4 @@
-use std::{str::from_utf8, sync::{Arc, LazyLock}};
+use std::{collections::HashSet, str::from_utf8, sync::{Arc, LazyLock}};
 
 use chrono::{DateTime, Utc};
 use json::stringify;
@@ -333,18 +333,18 @@ pub fn get_group_full(name: &str) -> Result<Option<Group>, BackendError> {
 
 pub fn get_all_groups_full() -> Result<Vec<Group>, BackendError> {
     let tree = GROUPS.clone();
-
+    let mut set: HashSet<Box<str>> = HashSet::new();
     let mut res = vec![];
+
     for entry in tree.iter().keys() {
         let entry = entry?;
         let key = from_utf8(&entry)?;
-        res.push(
-            get_group_full(
-                &key[0..if let Some(n) = key.find(':') { n } else { key.len() }]
-            )?.ok_or(BackendError::new("Group not found...?", 500))?
-        );
+        set.insert(key[0..if let Some(n) = key.find(':') { n } else { key.len() }].into());
     }
 
+    for name in set {
+        res.push(get_group_full(&name)?.ok_or(BackendError::new("Error", 500))?);
+    }
     Ok(res)
 }
 
