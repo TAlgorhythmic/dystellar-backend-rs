@@ -30,7 +30,7 @@ impl SerializableJson for Permission {
 
     fn from_json(json: &json::JsonValue) -> Result<Self, super::BackendError> where Self: Sized {
         Ok(Self {
-            perm: json["permission"].as_str().ok_or(BackendError::new("permission.permission missing", 400))?.into(),
+            perm: json["perm"].as_str().ok_or(BackendError::new("permission.perm missing", 400))?.into(),
             value: json["value"].as_bool().ok_or(BackendError::new("permission.value missing", 400))?,
         })
     }
