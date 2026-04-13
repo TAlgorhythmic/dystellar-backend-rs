@@ -336,8 +336,13 @@ pub fn get_all_groups_full() -> Result<Vec<Group>, BackendError> {
 
     let mut res = vec![];
     for entry in tree.iter().keys() {
-        let key = entry?;
-        res.push(get_group_full(from_utf8(&key)?)?.ok_or(BackendError::new("Group not found...?", 500))?);
+        let entry = entry?;
+        let key = from_utf8(&entry)?;
+        res.push(
+            get_group_full(
+                &key[0..if let Some(n) = key.find(':') { n } else { key.len() }]
+            )?.ok_or(BackendError::new("Group not found...?", 500))?
+        );
     }
 
     Ok(res)
