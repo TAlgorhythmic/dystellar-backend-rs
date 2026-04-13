@@ -165,7 +165,7 @@ async fn update_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, 
 async fn add_perm_to_group(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes, Infallible>>, BackendError> {
     let json = get_body_json(HttpTransaction::Req(req)).await?;
     let group_name = json["group_name"].as_str().ok_or(BackendError::new("group_name missing", 400))?;
-    let perm = Permission::from_json(&json["permission"])?;
+    let perm = Permission::from_json(&json["perm"])?;
 
     put_permission_to_group(group_name, &perm)?;
 
