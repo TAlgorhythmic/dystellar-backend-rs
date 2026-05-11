@@ -424,7 +424,8 @@ fn get_user_punishments(uuid: &str) -> Result<Vec<Punishment>, BackendError> {
     let pun_tree = PUNISHMENTS.clone();
 
     for pun in tree.scan_prefix(&prefix) {
-        let id = from_utf8(&pun?.0)?.parse::<u64>()?;
+        let raw: [u8; 8] = pun?.1.as_ref().try_into().map_err(|_| BackendError::new("Internal Error", 500))?;
+        let id = u64::from_be_bytes(raw);
         let value = pun_tree.get(id.to_be_bytes())?.ok_or(BackendError::new("Punishment not found", 500))?;
         let pun = Punishment::from_json(&json::parse(from_utf8(&value)?)?)?;
 
