@@ -206,15 +206,12 @@ pub fn get_user_connected(uuid: &str, name: &str, address: &str) -> Result<User,
     let tree = IP_PUNISHMENTS.clone();
     let puns_tree = PUNISHMENTS.clone();
 
-    for p in tree.scan_prefix(address.get(0..address.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?).unwrap())
+    for p in tree.scan_prefix(&address[0..address.rfind('.').ok_or(BackendError::new("Bad ip address", 400))?])
         .filter_map(|p| {
-            let raw: [u8; 8] = p.ok()?.1.as_ref().try_into().ok()?;
-            let id = u64::from_be_bytes(raw);
-
             Punishment::from_json(
                 &json::parse(
                     from_utf8(
-                        &puns_tree.get(&id.to_be_bytes()).ok()??
+                        &puns_tree.get(p.ok()?.1).ok()??
                     ).ok()?
                 ).ok()?
             ).ok()
